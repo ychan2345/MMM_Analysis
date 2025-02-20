@@ -18,11 +18,8 @@ def enhance_image(image_bytes: bytes,
     Enhances an image's clarity using default parameters.
     """
     image = Image.open(io.BytesIO(image_bytes))
-
-    # Convert image to RGB if it's not already (to avoid RGBA issues)
     if image.mode != "RGB":
         image = image.convert("RGB")
-
     if auto_contrast:
         image = ImageOps.autocontrast(image)
     if use_unsharp:
@@ -37,10 +34,10 @@ def enhance_image(image_bytes: bytes,
     image = enhancer.enhance(contrast_factor)
     return image
 
-def split_image(image: Image.Image) -> list:
+def split_image_vertical(image: Image.Image) -> list:
     """
     Splits the image vertically into two halves.
-    Returns a list containing the left half and right half.
+    Returns a list containing the left and right halves.
     """
     width, height = image.size
     left_half = image.crop((0, 0, width // 2, height))
@@ -66,6 +63,7 @@ def analyze_image_with_gpt4_vision_custom(image_bytes: bytes, custom_prompt: str
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
         response = client.chat.completions.create(
             model="gpt-4-turbo",
+            temperature=0,
             messages=[
                 {
                     "role": "user",
@@ -73,9 +71,7 @@ def analyze_image_with_gpt4_vision_custom(image_bytes: bytes, custom_prompt: str
                         {"type": "text", "text": custom_prompt},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
                         }
                     ]
                 }
@@ -112,10 +108,7 @@ def main():
     st.markdown(
         """
         <style>
-            .block-container {
-                max-width: 1400px;
-                padding: 2rem;
-            }
+            .block-container { max-width: 1400px; padding: 2rem; }
         </style>
         """,
         unsafe_allow_html=True
@@ -127,10 +120,71 @@ def main():
     st.title("📊 Marketing Mix Model Analysis")
     st.markdown("""
     <div class="info-box">
-        <p>Upload your marketing mix model output images (charts, metrics, etc.) for detailed analysis. 
+        <p>Upload your marketing mix model output images (charts, metrics, etc.) for detailed analysis.
         The AI will provide insights on model performance, key drivers, and optimization recommendations.</p>
     </div>
     """, unsafe_allow_html=True)
+
+    # Detailed prompt for full-image analysis
+    detailed_prompt = (
+        "You are an experienced marketing data scientist. The user has uploaded an image containing output from a Robyn marketing mix model. "
+        "Please read the image carefully and pay extra attention to all numerical details. Verify every number; if there is any uncertainty or ambiguity, clearly note your assumptions. "
+        "Depending on the image title, please tailor your analysis as follows:\n\n"
+        "--------------------------------------------------\n"
+        "If the image is titled \"One-pager for Model\", interpret the key insights from the charts provided and address the following:\n\n"
+        "Overall Model Performance:\n"
+        "- Evaluate key metrics such as Adjusted R², NRMSE, and DECOMP.RSSD.\n"
+        "- Identify signs of model robustness or potential overfitting/underfitting from the Fitted vs. Residual plot.\n\n"
+        "Channel Contributions and Efficiency:\n"
+        "- Analyze the Response Decomposition Waterfall by Predictor to highlight the channels driving positive or negative incremental responses.\n"
+        "- Assess the Share of Total Spend, Effect & ROAS chart to determine spending efficiency.\n"
+        "- Compare channel-level ROI/ROAS in the In-cluster Bootstrapped ROAS plot and highlight any channels with low returns.\n\n"
+        "Time Dynamics and Carryover Effects:\n"
+        "- Use the Weibull PDF Adstock plot to interpret the flexible rate over time for each channel.\n"
+        "- Examine the Immediate vs. Carryover Response Percentage plot to understand the distribution of immediate vs. long-term effects.\n\n"
+        "Spend and Response Relationships:\n"
+        "- Interpret the Response Curves and Mean Spends by Channel to identify diminishing returns and spending thresholds.\n"
+        "- Discuss how well spend and response align for each channel.\n\n"
+        "Actionable Recommendations:\n"
+        "- Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming ones.\n"
+        "- Suggest improvements in spend allocation based on observed diminishing returns.\n"
+        "- Highlight any adjustments to model assumptions that could improve future efforts.\n\n"
+        "Summary and Next Steps:\n"
+        "- Provide a concise summary of the model’s performance, strengths, and limitations.\n"
+        "- Suggest actionable next steps for optimizing the media mix strategy.\n"
+        "- If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or improvements are identified.\n\n"
+        "--------------------------------------------------\n"
+        "If the image is titled \"Budget Allocation Onepager for Model\", please address these points:\n\n"
+        "Total Budget Optimization and Budget Allocation per Paid Media\n"
+           "- Based on the graphs, provide a table that summarizes the Total Budget Optimization results for the categories: Initial, Bounded, and Bounded x3.\n"
+           "- Additionally, provide a separate table that shows the Budget Allocation per Paid Media. This table should list all channel names along with the corresponding metrics for Initial, Bounded, and Bounded x3.\n\n"
+        "1. Critical Budget Allocation Insights & Business Priorities\n"
+        "   - Evaluate the current distribution of the marketing budget across channels based on the Roybn Model.\n"
+        "   - Identify channels with high or low incremental response and ROAS to determine if they are under- or over-invested.\n"
+        "   - For budget adjustments (e.g., scenarios of 5% and 10% reallocation), clearly outline which channels meet the performance criteria for additional investment. Provide specific dollar figures (e.g., \"$10,000 for Channel A\") to illustrate recommended investment amounts and maximize ROI.\n\n"
+        "2. Detailed Channel Performance & ROI Analysis\n"
+        "   - Provide a side-by-side comparison of channel-specific ROAS, incremental response, and bootstrapped confidence intervals.\n"
+        "   - Assess whether the current spend is proportionate to the observed incremental impact.\n"
+        "   - If certain channels show unfavorable ROI/ROAS, recommend holding off on further investment until more data is available or targeted strategies are implemented. Include example figures to quantify the proposed hold or delay.\n\n"
+        "3. Additional Budget Investment Strategy\n"
+        "   - Determine which channel(s) offer the best potential for improved ROI with additional budget allocation.\n"
+        "   - Use data-driven insights to rank channels and highlight the most critical opportunities for growth.\n"
+        "   - Explicitly provide recommended dollar amounts (e.g., \"Allocate an extra $10,000 to Channel A and $8,500 to Channel B\") based on the model’s sensitivity analysis and performance metrics.\n\n"
+        "4. Final Model Evaluation & Strategic Recommendations\n"
+        "   - Evaluate whether the Roybn Model meets industry standards and business needs, summarizing strengths and weaknesses.\n"
+        "   - Provide actionable recommendations to refine both the model and the media mix strategy.\n"
+        "   - Ensure all numerical details and assumptions are clearly validated.\n\n"
+        "5. Structured Budget Allocation Table\n"
+        "   - Present a table that outlines the recommended spend per channel and the expected ROI.\n"
+        "   - If no channel meets the threshold for a strong ROI—even with extra budget—state that further investment is not advisable and recommend alternative actions (e.g., collecting more data or adjusting campaign strategies).\n\n"
+        "Table Format:\n"
+        "| Channel       | Recommended Spend ($) | Expected ROI (%) |\n"
+        "|--------------|----------------------|------------------|\n"
+        "| Channel 1    |       $10,000        |       15%       |\n"
+        "| Channel 2    |       $8,500         |       12%       |\n"
+        "| Channel 3    |       $12,000        |       18%       |\n\n"
+        "Note: The \"Budget Allocation per Media\" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel."
+    )
 
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
@@ -146,8 +200,9 @@ def main():
             original_image_bytes = uploaded_file.read()
             enhanced_image = enhance_image(original_image_bytes)
             st.image(enhanced_image, use_container_width=True, caption="Enhanced Image")
-        # Checkbox for splitting the image into halves
-        split_image_option = st.checkbox("Split image into halves before analysis", value=False)
+
+        # Checkbox for splitting vertically
+        split_vertically = st.checkbox("Split Vertically", value=False)
 
     with col2:
         api_key = st.text_input(
@@ -177,16 +232,16 @@ def main():
     if uploaded_file is not None and analyze_button and api_key:
         with st.spinner("Analyzing marketing mix model..."):
             try:
-                if split_image_option:
-                    # Split image vertically (left/right halves)
-                    halves = split_image(enhanced_image)
-                    st.markdown("### Preview of Split Images")
+                final_output = ""
+                if split_vertically:
+                    halves = split_image_vertical(enhanced_image)
+                    st.markdown("### Preview of Split Images (Vertical)")
                     st.markdown("**Left Half:**")
-                    st.image(halves[0], use_column_width=True)
+                    st.image(halves[0], use_container_width=True)
                     st.markdown("**Right Half:**")
-                    st.image(halves[1], use_column_width=True)
+                    st.image(halves[1], use_container_width=True)
 
-                    # Define different prompts for each half
+                    # Custom prompts for vertical splitting
                     left_prompt = (
                         "Please analyze the following image focusing on: model performance, response decomposition waterfall by predictor plot, "
                         "share of total spend, effect & ROAS in the modeling window plot, flexible rate over time plot, and response curves and mean spends by channel plot."
@@ -198,111 +253,56 @@ def main():
 
                     left_bytes = pil_image_to_bytes(halves[0])
                     right_bytes = pil_image_to_bytes(halves[1])
-
                     left_response = analyze_image_with_gpt4_vision_custom(left_bytes, left_prompt, api_key)
                     right_response = analyze_image_with_gpt4_vision_custom(right_bytes, right_prompt, api_key)
 
                     combined_prompt = (
                         "Based on the following analyses:\n\n"
-                        "Left Half Analysis:\n" + left_response + "\n\n"
-                        "Right Half Analysis:\n" + right_response + "\n\n"
+                        "Left/Half Analysis:\n" + left_response + "\n\n"
+                        "Right/Half Analysis:\n" + right_response + "\n\n"
                         '''Please integrate the analyses from both responses and interpret the following:
-                        
-                Overall Model Performance:
-Evaluate key performance metrics such as Adjusted R², NRMSE, and DECOMP.RSSD to assess model accuracy and reliability.
-Examine the Fitted vs. Residual plot to identify any signs of overfitting or underfitting, ensuring the model’s robustness.
-Determine whether the model's predictive power is sufficient to inform business decisions or if further refinement is required.
-Clearly state if the model is strong enough to proceed with marketing investments or if additional improvements (e.g., more data, tuning hyperparameters, refining assumptions) are needed before making strategic decisions.
 
-                Channel Contributions and Carryover Effects:
-Assess the Share of Total Spend, Effect & ROAS chart to evaluate spending efficiency across different channels.
-Use the Weibull PDF Adstock plot to analyze how advertising effectiveness changes over time and its implications for future media planning.
-Examine the Immediate vs. Carryover Response Percentage plot to understand the split between short-term and long-term effects across different channels.
+Overall Model Performance:
+- Evaluate key performance metrics such as Adjusted R², NRMSE, and DECOMP.RSSD to assess model accuracy and reliability.
+- Examine the Fitted vs. Residual plot to identify any signs of overfitting or underfitting.
+- Determine whether the model's predictive power is sufficient for strategic decisions or if further refinement is needed.
 
-                Actionable Recommendations:
-Budget Optimization: Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming channels.
-Strategic Spend Adjustments: Provide recommendations on spend allocation strategy based on observed diminishing returns and response curves.
-Model Refinement: Highlight potential adjustments to model assumptions or inputs that could improve future modeling efforts.
+Channel Contributions and Carryover Effects:
+- Assess the Share of Total Spend, Effect & ROAS chart to evaluate spending efficiency across channels.
+- Use the Weibull PDF Adstock plot to analyze how advertising effectiveness changes over time.
+- Examine the Immediate vs. Carryover Response Percentage plot to understand the distribution of immediate and long-term effects.
 
-                Summary and Next Steps:
-Provide a concise evaluation of the model’s performance, strengths, and limitations.
-Offer actionable next steps to optimize the media mix strategy, such as collecting additional data, testing alternative predictors, or validating key assumptions.
-If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until more data is available or until specific improvements are identified.
-Clearly conclude whether the model’s insights are reliable enough to proceed with marketing investment decisions or whether further refinements are required before taking action.
+Actionable Recommendations:
+- Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming ones.
+- Provide recommendations for strategic spend adjustments based on diminishing returns and response curves.
+- Suggest model refinements to improve future forecasts.
+
+Summary and Next Steps:
+- Provide a concise summary of the model’s performance, strengths, and limitations.
+- Offer actionable next steps, such as collecting additional data or testing alternative predictors.
+- Clearly state whether the model’s insights support current marketing investment decisions or if further improvements are required.
 '''
                     )
-                    
                     combined_summary = summarize_responses(combined_prompt, api_key)
-
+                    final_output = combined_summary
                     st.markdown("### Model Interpretations Summary")
                     st.markdown(f'<div class="analysis-result">{combined_summary}</div>', unsafe_allow_html=True)
                 else:
-                    # Non-split analysis: use the general default prompt
-                    default_prompt = """You are an experienced marketing data scientist. The user has uploaded an image containing output from a Robyn marketing mix model. Please read the image carefully and pay extra attention to all numerical details. Verify every number; if there is any uncertainty or ambiguity, clearly note your assumptions. Depending on the image title, please tailor your analysis as follows:
-
-                    --------------------------------------------------
-                    If the image is titled "One-pager for Model", Interpret the key insights from the charts provided and address the following:
-
-                Overall Model Performance:
-            
-            Evaluate key metrics such as Adjusted R², NRMSE, and DECOMP.RSSD.
-            Identify signs of model robustness or potential overfitting/underfitting from the Fitted vs. Residual plot.
-            Channel Contributions and Efficiency:
-            
-            Analyze the Response Decomposition Waterfall by Predictor to highlight the channels driving positive or negative incremental responses.
-            Assess the Share of Total Spend, Effect & ROAS chart to determine the efficiency of spending across channels.
-            Compare channel-level ROI/ROAS in the In-cluster Bootstrapped ROAS plot and highlight any channels with low returns.
-            
-            Time Dynamics and Carryover Effects:
-            Use the Weibull PDF Adstock plot to interpret the flexible rate over time for each channel and its implications for media planning.
-            Examine the Immediate vs. Carryover Response Percentage plot to understand the distribution of immediate vs. long-term effects across channels.
-            
-            Spend and Response Relationships:
-            Interpret the Response Curves and Mean Spends by Channel to identify diminishing returns and thresholds for media spend efficiency.
-            Discuss how well spend and response align for each channel.
-
-            Actionable Recommendations:
-            Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming channels.
-            Suggest improvements in spend allocation strategy based on the observed diminishing returns and response curves.
-            Highlight any potential adjustments to model assumptions or inputs that could improve future modeling efforts.
-            
-            Summary and Next Steps:
-            Provide a concise summary of the model’s performance, strengths, and limitations.
-            Suggest actionable next steps for optimizing the media mix strategy, such as additional data collection, testing alternative predictors, or validating assumptions.
-            If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or until actionable improvements are identified.
-
-                    --------------------------------------------------
-                    If the image is titled "Budget Allocation Onepager for Model", please address these points:
-
-                    1. Budget Allocation Insights
-Analyze how the marketing budget is currently allocated across channels.
-Identify any channels that appear under- or over-invested relative to their performance metrics (e.g., incremental response, ROAS).
-
-                    2. Channel Performance and ROI
-Compare channel-specific ROAS and performance, including any bootstrapped confidence intervals.
-Assess whether the spend allocation aligns with the incremental impact observed across channels.
-Important: If the ROI or ROAS metrics are unfavorable, recommend delaying further investment until additional data is available or until actionable strategies are developed.
-Ensure all numerical details are thoroughly verified for clarity and accuracy.
-
-                    3. Final Evaluation & Actionable Insights
-Provide an assessment of whether this is a 'good' model overall based on industry standards.
-Offer specific, actionable recommendations on refining both the model and the media mix strategy.
-Ensure detailed attention to the accuracy of all numerical values to avoid misinterpretation.
-
-                    4. Budget Allocation Table
-At the end of your analysis, present a structured budget allocation table indicating optimal spend per channel and expected ROI.
-If the model suggests that no channel is likely to generate a strong return on investment, explicitly state that further spending is not advisable.
-In such cases, recommend alternative actions such as collecting more data, refining the model, or adjusting campaign strategies before making investment decisions.
-Format the budget recommendation as follows:
-Channel	Recommended Spend ($)	Expected ROI (%)
-Channel 1	$XX,XXX	XX%
-Channel 2	$XX,XXX	XX%
-...	...	...
-"""
+                    # No splitting: analyze the full image using the detailed prompt
+                    st.markdown("### Uploaded Image")
+                    st.image(enhanced_image, use_container_width=True, caption="Uploaded Image")
                     enhanced_image_bytes = pil_image_to_bytes(enhanced_image)
-                    analysis_result = analyze_image_with_gpt4_vision_custom(enhanced_image_bytes, default_prompt, api_key)
+                    analysis_result = analyze_image_with_gpt4_vision_custom(enhanced_image_bytes, detailed_prompt, api_key)
+                    final_output = analysis_result
                     st.markdown("### 📋 Analysis Results")
                     st.markdown(f'<div class="analysis-result">{analysis_result}</div>', unsafe_allow_html=True)
+
+                st.download_button(
+                    label="Download Analysis Output",
+                    data=final_output,
+                    file_name="analysis_output.txt",
+                    mime="text/plain"
+                )
             except Exception as e:
                 st.error(f"Error during analysis: {str(e)}")
                 st.markdown("""
