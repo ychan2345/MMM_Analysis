@@ -155,6 +155,7 @@ def main():
         "- If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or improvements are identified.\n\n"
         "--------------------------------------------------\n"
         "If the image is titled \"Budget Allocation Onepager for Model\", please start with a bold title and address these points:\n\n"
+        "\n\n"
         "Budget Allocation per Paid Media:\n"
         "- Provide a table that shows the Budget Allocation per Paid Media. This table should list all channel names along with the corresponding metrics for Initial, Bounded, and Bounded x3.\n\n"
         "1. Critical Budget Allocation Insights & Business Priorities\n"
