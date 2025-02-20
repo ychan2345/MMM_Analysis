@@ -62,7 +62,7 @@ def analyze_image_with_gpt4_vision_custom(image_bytes: bytes, custom_prompt: str
             raise ValueError("OpenAI API key is required.")
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
         response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             temperature=0,
             messages=[
                 {
@@ -91,7 +91,7 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
         if not api_key:
             raise ValueError("OpenAI API key is required.")
         response = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[{"role": "user", "content": summary_prompt}],
             max_tokens=1000
         )
