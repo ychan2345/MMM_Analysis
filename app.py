@@ -155,9 +155,9 @@ def main():
         "- If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or improvements are identified.\n\n"
         "--------------------------------------------------\n"
         "If the image is titled \"Budget Allocation Onepager for Model\", please address these points:\n\n"
-        "Total Budget Optimization and Budget Allocation per Paid Media\n"
-           "- Based on the graphs, provide a table that summarizes the Total Budget Optimization results for the categories: Initial, Bounded, and Bounded x3.\n"
-           "- Additionally, provide a separate table that shows the Budget Allocation per Paid Media. This table should list all channel names along with the corresponding metrics for Initial, Bounded, and Bounded x3.\n\n"
+        "Total Budget Optimization and Budget Allocation per Paid Media:\n"
+        "- Based on the graphs, provide a table that summarizes the Total Budget Optimization results for the categories: Initial, Bounded, and Bounded x3.\n"
+        "- Additionally, provide a separate table that shows the Budget Allocation per Paid Media. This table should list all channel names along with the corresponding metrics for Initial, Bounded, and Bounded x3.\n\n"
         "1. Critical Budget Allocation Insights & Business Priorities\n"
         "   - Evaluate the current distribution of the marketing budget across channels based on the Roybn Model.\n"
         "   - Identify channels with high or low incremental response and ROAS to determine if they are under- or over-invested.\n"
@@ -185,6 +185,7 @@ def main():
         "| Channel 3    |       $12,000        |       18%       |\n\n"
         "Note: The \"Budget Allocation per Media\" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel."
     )
+
 
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
