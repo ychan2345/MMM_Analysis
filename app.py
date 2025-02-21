@@ -126,7 +126,7 @@ def main():
     """, unsafe_allow_html=True)
 
     # Detailed prompt for full-image analysis
-    detailed_prompt = (
+    detailed_prompt = '''
         "You are an experienced marketing data scientist. The user has uploaded an image containing output from a Robyn marketing mix model. "
         "Please read the image carefully and pay extra attention to all numerical details. Verify every number; if there is any uncertainty or ambiguity, clearly note your assumptions. "
         "Depending on the image title, please tailor your analysis as follows:\n\n"
@@ -158,13 +158,29 @@ def main():
         "\n\n"
         "Budget Allocation per Paid Media:\n"
         "- Provide a table that shows the Budget Allocation per Paid Media. This table should list all channel names along with the corresponding metrics for Initial, Bounded, and Bounded x3.\n\n"
-        "Extract table data horizontally from left to right. Ensure that each row is processed in sequence, maintaining the alignment of values across columns. The table structure should be preserved exactly as it appears in the image. Below is the expected format after extraction, with two additional columns: 'Bounded abs.mean spend ($)' and 'Boundedx3 abs.mean spend ($)'.\n\n"
-        "Table Format:\n"
-        "| Channel       | Initial abs.mean spend ($) | Bounded abs.mean spend ($) | Boundedx3 abs.mean spend ($) |\n"
-        "|--------------|----------------------|----------------------|-------------------------|\n"
-        "| Channel 1    |       15K            |       12K            |       0.9K              |\n"
-        "| Channel 2    |       3.3K           |       3.5K           |       1.5K              |\n"
-        "| Channel 3    |       4.5K           |       4.8K           |       0.9K              |\n\n"
+           The image containing budget allocation per paid media variable per month, displayed in a heatmap format. The image has three sections: "Initial," "Bounded," and "Bounded x3." Each section contains numerical data for different paid media categories, and their names should be extracted exactly as they appear in the image.  
+    
+    Each section presents the following metrics:  
+    1. "abs.mean spend"  
+    2. "mean spend%"  
+    3. "mean response%"  
+    4. "mean ROAS"  
+    5. "mROAS"  
+    Please extract the numerical values from the image and format them into a structured table, ensuring that the paid media names match those shown in the image. The table should be formatted as follows:  
+    
+    | Paid Media  | Scenario    | abs.mean spend | mean spend% | mean response% | mean ROAS | mROAS |
+    |------------|------------|----------------|-------------|----------------|-----------|--------|
+    | [Media Name 1]  | Initial    | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    | [Media Name 2]  | Initial    | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    | [Media Name 1]  | Bounded    | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    | [Media Name 2]  | Bounded    | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    | [Media Name 1]  | Bounded x3 | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    | [Media Name 2]  | Bounded x3 | [Value]  | [Value]  | [Value]  | [Value]  | [Value]  |
+    
+    - Replace `[Media Name 1]` and `[Media Name 2]` with the actual paid media names from the image.  
+    - Ensure the extracted data is correctly structured in tabular format.  
+    - If any data is unclear, provide the best estimation based on the image.
+
         "1. Critical Budget Allocation Insights & Business Priorities\n"
         "   - Evaluate the current distribution of the marketing budget across channels based on the Roybn Model.\n"
         "   - Identify channels with high or low incremental response and ROAS to determine if they are under- or over-invested.\n"
@@ -191,7 +207,7 @@ def main():
         "| Channel 2    |       $3.5K          |       12%        |\n"
         "| Channel 3    |       $0.8K          |       18%        |\n\n"
         "Note: The \"Budget Allocation per Media\" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel."
-    )
+    '''
 
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
