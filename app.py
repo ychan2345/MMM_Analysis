@@ -193,7 +193,6 @@ def main():
         "Note: The \"Budget Allocation per Media\" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel."
     )
 
-
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
     enhanced_image = None
@@ -296,8 +295,12 @@ Summary and Next Steps:
                     st.markdown("### Model Interpretations Summary")
                     st.markdown(f'<div class="analysis-result">{combined_summary}</div>', unsafe_allow_html=True)
                 else:
-                    # No splitting: analyze the full image using the detailed prompt
-                    st.markdown("### Uploaded Image")
+                    # No splitting: perform additional clarity/resolution enhancement
+                    upscale_factor = 2  # Adjust this factor as needed
+                    width, height = enhanced_image.size
+                    enhanced_image = enhanced_image.resize((width * upscale_factor, height * upscale_factor), resample=Image.LANCZOS)
+
+                    st.markdown("### Uploaded Image (Enhanced Resolution)")
                     st.image(enhanced_image, use_container_width=True, caption="Uploaded Image")
                     enhanced_image_bytes = pil_image_to_bytes(enhanced_image)
                     analysis_result = analyze_image_with_gpt4_vision_custom(enhanced_image_bytes, detailed_prompt, api_key)
