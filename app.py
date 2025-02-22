@@ -95,6 +95,7 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
             raise ValueError("OpenAI API key is required.")
         response = client.chat.completions.create(
             model="gpt-4o",
+            temperature=0,
             messages=[{"role": "user", "content": summary_prompt}],
             max_tokens=1000
         )
