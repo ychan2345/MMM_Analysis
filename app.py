@@ -4,6 +4,7 @@ from openai import OpenAI
 import streamlit as st
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import io
+from docx import Document  # New import for creating DOCX files
 
 def enhance_image(image_bytes: bytes,
                   sharpness_factor=2.0,
@@ -225,7 +226,6 @@ def main():
     Note: The "Budget Allocation per Media" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel.
     '''
 
-
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
     enhanced_image = None
@@ -356,11 +356,26 @@ Summary and Next Steps:
                     st.markdown("### 📋 Analysis Results")
                     st.markdown(f'<div class="analysis-result">{analysis_result}</div>', unsafe_allow_html=True)
 
+                # Button to download analysis output as a text file
                 st.download_button(
-                    label="Download Analysis Output",
+                    label="Download Analysis Output (TXT)",
                     data=final_output,
                     file_name="analysis_output.txt",
                     mime="text/plain"
+                )
+
+                # --- New: Create a DOCX file for download ---
+                doc = Document()
+                doc.add_paragraph(final_output)
+                docx_buffer = io.BytesIO()
+                doc.save(docx_buffer)
+                docx_data = docx_buffer.getvalue()
+
+                st.download_button(
+                    label="Download Analysis Output (DOCX)",
+                    data=docx_data,
+                    file_name="analysis_output.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
             except Exception as e:
                 st.error(f"Error during analysis: {str(e)}")
