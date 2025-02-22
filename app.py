@@ -4,7 +4,9 @@ from openai import OpenAI
 import streamlit as st
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 import io
-from docx import Document  # New import for creating DOCX files
+from docx import Document
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 def enhance_image(image_bytes: bytes,
                   sharpness_factor=2.0,
@@ -100,6 +102,93 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
     except Exception as e:
         raise Exception(f"Error summarizing responses: {str(e)}")
 
+def add_table_to_doc(doc: Document, table_lines: list):
+    """
+    Parses a list of strings (each representing a table row in markdown format)
+    and adds a formatted table to the DOCX document.
+    """
+    # Parse the rows by splitting on '|'
+    rows = []
+    for line in table_lines:
+        parts = [part.strip() for part in line.strip("|").split("|")]
+        rows.append(parts)
+
+    # Check if the second row is a divider (only dashes)
+    if len(rows) >= 2:
+        is_divider = all(not cell or all(ch in "- " for ch in cell) for cell in rows[1])
+        if is_divider:
+            header = rows[0]
+            data_rows = rows[2:]
+        else:
+            header = None
+            data_rows = rows
+    else:
+        header = None
+        data_rows = rows
+
+    num_cols = max(len(r) for r in rows)
+    table = doc.add_table(rows=0, cols=num_cols)
+    table.style = "LightShading-Accent1"  # Change style as desired
+
+    if header:
+        hdr_cells = table.add_row().cells
+        for i, cell_text in enumerate(header):
+            hdr_cells[i].text = cell_text
+    for row_data in data_rows:
+        row_cells = table.add_row().cells
+        for i in range(num_cols):
+            cell_text = row_data[i] if i < len(row_data) else ""
+            row_cells[i].text = cell_text
+
+def add_formatted_text_to_doc(doc: Document, text: str):
+    """
+    Processes the final_output string line by line.
+    Lines that start with '###' are added as headings.
+    Lines that look like table rows (starting and ending with '|') are collected and added as a table.
+    All other lines are added as normal paragraphs.
+    """
+    lines = text.splitlines()
+    table_buffer = []
+    in_table = False
+
+    for line in lines:
+        # If line is blank, flush any table buffer and add a blank paragraph.
+        if not line.strip():
+            if in_table and table_buffer:
+                add_table_to_doc(doc, table_buffer)
+                table_buffer = []
+                in_table = False
+            doc.add_paragraph("")
+            continue
+
+        # If the line is a markdown-style heading (starting with '#')
+        if line.startswith("###"):
+            if in_table and table_buffer:
+                add_table_to_doc(doc, table_buffer)
+                table_buffer = []
+                in_table = False
+            # Count the number of '#' to determine heading level.
+            level = len(line) - len(line.lstrip("#"))
+            heading_text = line.lstrip("#").strip()
+            doc.add_heading(heading_text, level=level)
+        # If the line appears to be a table row
+        elif line.startswith("|") and line.endswith("|"):
+            table_buffer.append(line)
+            in_table = True
+        else:
+            if in_table and table_buffer:
+                add_table_to_doc(doc, table_buffer)
+                table_buffer = []
+                in_table = False
+            # Add as a normal paragraph. You can customize font size, boldness, etc.
+            para = doc.add_paragraph(line)
+            run = para.runs[0]
+            run.font.size = Pt(11)
+
+    # Flush any remaining table buffer
+    if in_table and table_buffer:
+        add_table_to_doc(doc, table_buffer)
+
 def main():
     st.set_page_config(
         page_title="Marketing Mix Model Analysis with GPT-4 Vision",
@@ -178,12 +267,12 @@ def main():
 
     | Paid Media      | Scenario    | abs.mean spend | mean spend% | mean response% | mean ROAS | mROAS |
     |-----------------|-------------|----------------|-------------|----------------|-----------|-------|
-    | [Media Name 1]  | Initial     | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Initial     | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
-    | [Media Name 1]  | Bounded     | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Bounded     | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
-    | [Media Name 1]  | Bounded x3  | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Bounded x3  | [Value]        | [Value]   | [Value]        | [Value]   | [Value]  |
+    | [Media Name 1]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+    | [Media Name 2]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+    | [Media Name 1]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+    | [Media Name 2]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+    | [Media Name 1]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+    | [Media Name 2]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
 
     ### Instructions:
     - Extract each row **horizontally from left to right**.
@@ -364,9 +453,10 @@ Summary and Next Steps:
                     mime="text/plain"
                 )
 
-                # --- New: Create a DOCX file for download ---
+                # --- New: Create a formatted DOCX file for download ---
                 doc = Document()
-                doc.add_paragraph(final_output)
+                doc.add_heading("Analysis Output", level=1)
+                add_formatted_text_to_doc(doc, final_output)
                 docx_buffer = io.BytesIO()
                 doc.save(docx_buffer)
                 docx_data = docx_buffer.getvalue()
