@@ -79,7 +79,7 @@ def analyze_image_with_gpt4_vision_custom(image_bytes: bytes, custom_prompt: str
                     ]
                 }
             ],
-            max_tokens=1000
+            max_tokens=2000
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -97,7 +97,7 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
             model="gpt-4o",
             temperature=0,
             messages=[{"role": "user", "content": summary_prompt}],
-            max_tokens=3000
+            max_tokens=2000
         )
         return response.choices[0].message.content
     except Exception as e:
