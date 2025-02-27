@@ -97,7 +97,7 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
             model="gpt-4o",
             temperature=0,
             messages=[{"role": "user", "content": summary_prompt}],
-            max_tokens=1000
+            max_tokens=3000
         )
         return response.choices[0].message.content
     except Exception as e:
