@@ -79,7 +79,7 @@ def analyze_image_with_gpt4_vision_custom(image_bytes: bytes, custom_prompt: str
                     ]
                 }
             ],
-            max_tokens=2000
+            max_tokens=1000
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -97,7 +97,7 @@ def summarize_responses(summary_prompt: str, api_key: str) -> str:
             model="gpt-4o",
             temperature=0,
             messages=[{"role": "user", "content": summary_prompt}],
-            max_tokens=2000
+            max_tokens=1000
         )
         return response.choices[0].message.content
     except Exception as e:
@@ -208,113 +208,13 @@ def main():
         with open("styles.css") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-    st.title("📊 Marketing Mix Model Analysis")
+    st.title("📊 Marketing Mix Model Ouput Interpretations")
     st.markdown("""
     <div class="info-box">
         <p>Upload your marketing mix model output images (charts, metrics, etc.) for detailed analysis.
         The AI will provide insights on model performance, key drivers, and optimization recommendations.</p>
     </div>
     """, unsafe_allow_html=True)
-
-    # Detailed prompt for full-image analysis
-    detailed_prompt = '''
-    You are an experienced marketing data scientist. The user has uploaded an image containing output from a Robyn marketing mix model.
-    Please read the image carefully and pay extra attention to all numerical details. Verify every number; if there is any uncertainty or ambiguity, clearly note your assumptions.
-    Depending on the image title, please tailor your analysis as follows:
-
-    --------------------------------------------------
-    If the image is titled "One-pager for Model", interpret the key insights from the charts provided and address the following:
-
-    Overall Model Performance:
-    - Evaluate key metrics such as Adjusted R², NRMSE, and DECOMP.RSSD.
-    - Identify signs of model robustness or potential overfitting/underfitting from the Fitted vs. Residual plot.
-
-    Channel Contributions and Efficiency:
-    - Analyze the Response Decomposition Waterfall by Predictor to highlight the channels driving positive or negative incremental responses.
-    - Assess the Share of Total Spend, Effect & ROAS chart to determine spending efficiency.
-    - Compare channel-level ROI/ROAS in the In-cluster Bootstrapped ROAS plot and highlight any channels with low returns.
-
-    Time Dynamics and Carryover Effects:
-    - Use the Weibull PDF Adstock plot to interpret the flexible rate over time for each channel.
-    - Examine the Immediate vs. Carryover Response Percentage plot to understand the distribution of immediate vs. long-term effects.
-
-    Spend and Response Relationships:
-    - Interpret the Response Curves and Mean Spends by Channel to identify diminishing returns and spending thresholds.
-    - Discuss how well spend and response align for each channel.
-
-    Actionable Recommendations:
-    - Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming ones.
-    - Suggest improvements in spend allocation based on observed diminishing returns.
-    - Highlight any adjustments to model assumptions that could improve future efforts.
-
-    Summary and Next Steps:
-    - Provide a concise summary of the model’s performance, strengths, and limitations.
-    - Suggest actionable next steps for optimizing the media mix strategy.
-    - If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or improvements are identified.
-
-    --------------------------------------------------
-    If the image is titled "Budget Allocation Onepager for Model", please address these points:
-
-
-    Budget Allocation per Paid Media:
-    Extract the table data for 'Budget Allocation per Paid Media Variable per Month'. The table contains three sections:
-    1. **Initial** (Left Table)
-    2. **Bounded** (Middle Table)
-    3. **Bounded x3** (Right Table)
-
-    The first column represents the **Paid Media** names. Extract the **abs.mean spend ($)**, **mean spend%**, **mean response%**, **mean ROAS**, and **mROAS** values and format the table as follows:
-
-    Please extract the numerical values from the image and format them into a structured table, ensuring that the paid media names match those shown in the image. The table should be formatted as follows:  
-
-    | Paid Media      | Scenario    | abs.mean spend | mean spend% | mean response% | mean ROAS | mROAS |
-    |-----------------|-------------|----------------|-------------|----------------|-----------|-------|
-    | [Media Name 1]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-    | [Media Name 1]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-    | [Media Name 1]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-    | [Media Name 2]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
-
-    ### Instructions:
-    - Extract each row **horizontally from left to right**.
-    - Maintain the **Paid Media names exactly** as they appear in the image.
-    - Ensure the extracted values are structured in the table above.
-
-    If any values are unclear, estimate based on the image and note any assumptions made.
-
-    1. Critical Budget Allocation Insights & Business Priorities
-       - Evaluate the current distribution of the marketing budget across channels based on the Roybn Model.
-       - Identify channels with high or low incremental response and ROAS to determine if they are under- or over-invested.
-       - For budget adjustments (e.g., scenarios of 5% and 10% reallocation), clearly outline which channels meet the performance criteria for additional investment. Provide specific dollar figures (e.g., "$10,000 for Channel A") to illustrate recommended investment amounts and maximize ROI.
-
-    2. Detailed Channel Performance & ROI Analysis
-       - Provide a side-by-side comparison of channel-specific ROAS, incremental response, and bootstrapped confidence intervals.
-       - Assess whether the current spend is proportionate to the observed incremental impact.
-       - If certain channels show unfavorable ROI/ROAS, recommend holding off on further investment until more data is available or targeted strategies are implemented. Include example figures to quantify the proposed hold or delay.
-
-    3. Additional Budget Investment Strategy
-       - Determine which channel(s) offer the best potential for improved ROI with additional budget allocation.
-       - Use data-driven insights to rank channels and highlight the most critical opportunities for growth.
-       - Explicitly provide recommended dollar amounts (e.g., "Allocate an extra $10,000 to Channel A and $8,500 to Channel B") based on the model’s sensitivity analysis and performance metrics.
-
-    4. Final Model Evaluation & Strategic Recommendations
-       - Evaluate whether the Roybn Model meets industry standards and business needs, summarizing strengths and weaknesses.
-       - Provide actionable recommendations to refine both the model and the media mix strategy.
-       - Ensure all numerical details and assumptions are clearly validated.
-
-    5. Structured Budget Allocation Table
-       - Present a table that outlines the recommended spend per channel and the expected ROI.
-       - If no channel meets the threshold for a strong ROI—even with extra budget—state that further investment is not advisable and recommend alternative actions (e.g., collecting more data or adjusting campaign strategies).
-
-    Table Format:
-    | Channel       | Recommended Spend ($) | Expected ROI (%) |
-    |---------------|-----------------------|------------------|
-    | Channel 1     | $5K                   | 15%              |
-    | Channel 2     | $3.5K                 | 12%              |
-    | Channel 3     | $0.8K                 | 18%              |
-
-    Note: The "Budget Allocation per Media" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel.
-    '''
 
     # Create two columns for layout
     col1, col2 = st.columns([1, 1])
@@ -330,12 +230,6 @@ def main():
             original_image_bytes = uploaded_file.read()
             enhanced_image = enhance_image(original_image_bytes)
             st.image(enhanced_image, use_container_width=True, caption="Enhanced Image")
-
-        # Checkbox for splitting vertically
-        split_vertically = st.checkbox("Split Vertically", value=False)
-        # New checkbox for cropping to 7/12 (top portion)
-        crop_to_7_12 = st.checkbox("Crop to 7/12", value=False,
-                                   help="If selected, only the top 7/12 portion of the image will be analyzed.")
 
     with col2:
         api_key = st.text_input(
@@ -356,6 +250,17 @@ def main():
                 </ol>
             </div>
             """, unsafe_allow_html=True)
+
+        # Dropdown Menu for Budget Plan
+        budget_plan = st.selectbox("Please select budget percentage plan", ['-20', '-10', '-5', '5', '10', '20'], 
+                                   help = "the percentage by which you'd like to adjust your budget—whether increasing or decreasing it—based on your business needs.")
+        
+        # Checkbox for splitting vertically
+        split_vertically = st.checkbox("Split Vertically", value=False)
+        # New checkbox for cropping to 7/12 (top portion)
+        crop_to_7_12 = st.checkbox("Crop to 7/12", value=False,
+                                   help="If selected, only the top 7/12 portion of the image will be analyzed.")
+        
         analyze_button = st.button(
             "📊 Analyze Model",
             help="Click to start the analysis",
@@ -363,6 +268,104 @@ def main():
         )
 
     if uploaded_file is not None and analyze_button and api_key:
+
+        if int(budget_plan) > 0:
+            direction = 'extra'
+        else:
+            direction = 'cut'
+        
+        # Detailed prompt for full-image analysis
+        detailed_prompt = f'''
+        You are an experienced marketing data scientist. The user has uploaded an image containing output from a Robyn marketing mix model.
+        Please read the image carefully and pay extra attention to all numerical details. Verify every number; if there is any uncertainty or ambiguity, clearly note your assumptions.
+        Depending on the image title, please tailor your analysis as follows:
+
+        --------------------------------------------------
+        If the image is titled "One-pager for Model", interpret the key insights from the charts provided and address the following:
+
+        Overall Model Performance:
+        - Evaluate key metrics such as Adjusted R², NRMSE, and DECOMP.RSSD.
+        - Identify signs of model robustness or potential overfitting/underfitting from the Fitted vs. Residual plot.
+
+        Channel Contributions and Efficiency:
+        - Analyze the Response Decomposition Waterfall by Predictor to highlight the channels driving positive or negative incremental responses.
+        - Assess the Share of Total Spend, Effect & ROAS chart to determine spending efficiency.
+        - Compare channel-level ROI/ROAS in the In-cluster Bootstrapped ROAS plot and highlight any channels with low returns.
+
+        Time Dynamics and Carryover Effects:
+        - Use the Weibull PDF Adstock plot to interpret the flexible rate over time for each channel.
+        - Examine the Immediate vs. Carryover Response Percentage plot to understand the distribution of immediate vs. long-term effects.
+
+        Spend and Response Relationships:
+        - Interpret the Response Curves and Mean Spends by Channel to identify diminishing returns and spending thresholds.
+        - Discuss how well spend and response align for each channel.
+
+        Actionable Recommendations:
+        - Identify opportunities to reallocate budget toward high-ROAS channels and reduce spending on underperforming ones.
+        - Suggest improvements in spend allocation based on observed diminishing returns.
+        - Highlight any adjustments to model assumptions that could improve future efforts.
+
+        Summary and Next Steps:
+        - Provide a concise summary of the model’s performance, strengths, and limitations.
+        - Suggest actionable next steps for optimizing the media mix strategy.
+        - If any channel’s ROI or ROAS is significantly below expectations, recommend delaying further investment until additional data is available or improvements are identified.
+
+        --------------------------------------------------
+        If the image is titled "Budget Allocation Onepager for Model", please address these points:
+
+
+        Budget Allocation per Paid Media:
+        Extract the table data for 'Budget Allocation per Paid Media Variable per Month'. The table contains three sections:
+        1. **Initial** (Left Table)
+        2. **Bounded** (Middle Table)
+        3. **Bounded x3** (Right Table)
+
+        The first column represents the **Paid Media** names. Extract the **abs.mean spend ($)**, **mean spend%**, **mean response%**, **mean ROAS**, and **mROAS** values and format the table as follows:
+
+        Please extract the numerical values from the image and format them into a structured table, ensuring that the paid media names match those shown in the image. The table should be formatted as follows:  
+
+        | Paid Media      | Scenario    | abs.mean spend | mean spend% | mean response% | mean ROAS | mROAS |
+        |-----------------|-------------|----------------|-------------|----------------|-----------|-------|
+        | [Media Name 1]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+        | [Media Name 2]  | Initial     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+        | [Media Name 1]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+        | [Media Name 2]  | Bounded     | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+        | [Media Name 1]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+        | [Media Name 2]  | Bounded x3  | [Value]        | [Value]     | [Value]        | [Value]   | [Value]  |
+
+        ### Instructions:
+        - Extract each row **horizontally from left to right**.
+        - Maintain the **Paid Media names exactly** as they appear in the image.
+        - Ensure the extracted values are structured in the table above.
+
+        If any values are unclear, estimate based on the image and note any assumptions made.
+
+        1. Critical Budget Allocation Insights & Business Priorities
+           Summarize the current budget allocation across each channel:
+           - Please provide a detailed breakdown including the exact numeric spend levels, response volumes, and ROAS/ROI values per channel. 
+           - Ensure that your response includes precise numbers and percentages where applicable, so that each channel's performance is clearly quantified.
+
+        2. Budget {direction}
+          - If the business gains an {direction} {abs(int(budget_plan))}% in budget, please provide a specific numerical breakdown by channel. For each scenario, indicate exactly what percentage or amount of the additional budget should be allocated to each channel to maximize overall ROI/ROAS. 
+          - Explain how you arrived at these recommendations, referencing the marginal returns or response curves for each channel.
+
+        3. Summary & Action Steps
+           - Provide a clear summary of your recommended allocation changes.
+           - Offer any additional insights about channel synergy or diminishing returns that could guide future budget decisions.
+
+        4. Structured Budget Allocation Table
+           - Present a table that outlines the recommended spend per channel and the expected ROI.
+           - If no channel meets the threshold for a strong ROI—even with extra budget—state that further investment is not advisable and recommend alternative actions (e.g., collecting more data or adjusting campaign strategies).
+
+        Table Format:
+        | Channel       | Recommended Spend ($) | Expected ROI (%) |
+        |---------------|-----------------------|------------------|
+        | Channel 1     | $5K                   | 15%              |
+        | Channel 2     | $3.5K                 | 12%              |
+        | Channel 3     | $0.8K                 | 18%              |
+
+        Note: The "Budget Allocation per Media" table in the image is arranged horizontally (channels are rows and metrics are columns). Please ignore the Paid Media channel.
+        '''
         with st.spinner("Analyzing marketing mix model..."):
             try:
                 final_output = ""
