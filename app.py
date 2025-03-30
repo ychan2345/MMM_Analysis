@@ -863,7 +863,7 @@ def main():
 
     # Add sidebar with instructions
     with st.sidebar:
-        st.title("Welcome to the Marketing Mix Model Analysis Tool")
+        st.title("Welcome to the LLM-Powered AI Marketing Mix Analyzer Tool")
         st.write("This application helps you analyze marketing mix model outputs using advanced AI. Here's how to use it:")
         
         st.markdown("**1. Select Mode:** Choose your preferred analysis mode:")
@@ -883,7 +883,7 @@ def main():
         
         st.markdown("The output will include all six key sections: Model Performance, Business Drivers, Timing Impact, ROI Analysis, Budget Scenarios, and Recommendations.")
     
-    st.title("📊 Marketing Mix Model Analysis")
+    st.title("🤖 LLM-Powered AI Marketing Mix Analyzer")
 
     # Mode selection
     analysis_mode = st.selectbox(
