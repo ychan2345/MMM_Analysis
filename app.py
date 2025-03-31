@@ -74,6 +74,17 @@ def split_image_vertical(image: Image.Image) -> list:
     right_half = image.crop((width // 2, 0, width, height))
     return [left_half, right_half]
 
+def crop_top_portion(image: Image.Image, fraction=7/12) -> Image.Image:
+    """
+    Crops the top portion of an image based on the specified fraction.
+    By default, crops to the top 7/12 of the image.
+    Returns the cropped image.
+    """
+    width, height = image.size
+    crop_height = int(height * fraction)
+    cropped_image = image.crop((0, 0, width, crop_height))
+    return cropped_image
+
 def detect_image_type(image_bytes: bytes, api_key: str) -> str:
     """
     Detects the type of marketing mix model image.
@@ -302,6 +313,22 @@ def chatbot_with_image(image_bytes: bytes, user_question: str, api_key: str) -> 
         
         if not api_key:
             raise ValueError("OpenAI API key is required.")
+        
+        # First, try to detect image type to apply appropriate processing
+        try:
+            image_type = detect_image_type(image_bytes, api_key)
+            
+            # For budget allocation images, crop to top 7/12 for better focus on key data
+            if image_type == "budget-allocation":
+                image = Image.open(io.BytesIO(image_bytes))
+                cropped_image = crop_top_portion(image, fraction=7/12)
+                image_bytes = pil_image_to_bytes(cropped_image)
+                
+            # For one-pager images, we'll use the full image since the user's question
+            # could be about any part of the image
+        except Exception as e:
+            # If detection fails, use the original image
+            print(f"Error in image type detection during chat: {str(e)}")
             
         prompt = f"""The user has uploaded a marketing mix model analysis image and asks the following question:
 
@@ -698,7 +725,9 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         pie_chart = create_predictor_pie_chart(predictor_data)
         
         # Process and analyze the budget allocation image
-        budget_bytes = pil_image_to_bytes(budget_image)
+        # First crop to top 7/12 as this contains the most relevant budget information
+        cropped_budget_image = crop_top_portion(budget_image, fraction=7/12)
+        budget_bytes = pil_image_to_bytes(cropped_budget_image)
         budget_analysis = analyze_budget_allocation_with_gpt4_vision(budget_bytes, api_key)
         
         # Combine the analyses
@@ -766,7 +795,11 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
         if image_type == "one-pager":
             return analyze_one_pager_with_gpt4_vision(image_bytes, api_key)
         elif image_type == "budget-allocation":
-            return analyze_budget_allocation_with_gpt4_vision(image_bytes, api_key)
+            # Process the budget allocation image - crop to top 7/12 for better analysis
+            image = Image.open(io.BytesIO(image_bytes))
+            cropped_image = crop_top_portion(image, fraction=7/12)
+            cropped_bytes = pil_image_to_bytes(cropped_image)
+            return analyze_budget_allocation_with_gpt4_vision(cropped_bytes, api_key)
     except Exception as e:
         # Log the error but continue with generic analysis
         print(f"Error in image type detection: {str(e)}")
