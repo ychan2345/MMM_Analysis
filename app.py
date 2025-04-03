@@ -644,7 +644,7 @@ def analyze_budget_allocation_with_gpt4_vision(image_bytes: bytes, api_key: str)
            
            ### ii) 10% Increase in Spend Scenario
            
-           Present a table showing the optimal allocation with a 10% budget increase:
+           If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Present a table showing the optimal allocation with a 10% budget increase:
            
            | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
            |---------|-------------|--------------|------------|---------------|------------------------|
@@ -656,7 +656,7 @@ def analyze_budget_allocation_with_gpt4_vision(image_bytes: bytes, api_key: str)
            
            ### iii) 10% Decrease in Spend Scenario
            
-           Present a table showing the optimal allocation with a 10% budget decrease:
+           If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
            
            | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
            |---------|-------------|--------------|------------|---------------|------------------------|
@@ -763,10 +763,10 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         Present the current spending allocation and its performance.
         
         ### 5.2. 10% Increase in Spend Scenario
-        Show how a 10% increase would be optimally allocated and what the expected performance improvements would be.
+        If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Show how this 10% increase would be optimally allocated across channels and what the expected performance improvements would be.
         
         ### 5.3. 10% Decrease in Spend Scenario
-        Show how to handle a 10% budget reduction with minimal performance impact.
+        If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Show how this 10% decrease would be strategically allocated across channels to minimize negative performance impact.
         
         After presenting all scenarios, include a final recommendation table showing the optimal allocation strategy.
         
@@ -836,7 +836,7 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     
     ### ii) 10% Increase in Spend Scenario
            
-    Present a table showing the optimal allocation with a 10% budget increase:
+    If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Present a table showing the optimal allocation with a 10% budget increase:
     
     | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
     |---------|-------------|--------------|------------|---------------|------------------------|
@@ -846,7 +846,7 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     
     ### iii) 10% Decrease in Spend Scenario
            
-    Present a table showing the optimal allocation with a 10% budget decrease:
+    If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
     
     | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
     |---------|-------------|--------------|------------|---------------|------------------------|
@@ -1059,7 +1059,7 @@ def main():
                 <li>Key business drivers / consumption contributors</li>
                 <li>Investment Timing Impact (Immediate vs Carryover)</li>
                 <li>ROI for each media channel</li>
-                <li>Budget Allocation optimization Scenarios (Maintain Current Spend, 10% Increase, 10% Decrease)</li>
+                <li>Budget Allocation optimization Scenarios (Maintain Current Spend, if the business has extra 10% increase in budget which channels should receive more investment for better ROI, if the business cuts 10% in budget which channels should receive less investment while maintaining optimal ROI)</li>
                 <li>Summary of the recommendations and insights</li>
             </ol>
         </div>
