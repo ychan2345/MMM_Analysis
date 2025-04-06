@@ -1046,6 +1046,8 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         For example, if edu.spend increases from $12K to $13K in the bounded scenario, it should be recommended for increase.
         If web.spend decreases from $1.9K to $1.7K in the bounded scenario, it should not be recommended for increase.
         
+        IMPORTANT: Look carefully at the OOH_s (Out-of-Home) channel specifically. If OOH_s spend decreases in the "Bounded" scenario compared to "Initial", it should NOT be recommended for increase, even if it has a positive ROAS. The optimization model is indicating that reducing OOH_s investment would be more optimal.
+        
         The Final Recommendation table should clearly indicate:
         - Channels with 0 ROAS should be marked as "Re-evaluate" 
         - Channels showing increased spend in optimized scenarios should be marked as "Increase"
@@ -1059,6 +1061,7 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         - Never recommend increasing investment in channels with 0 ROAS
         - For channels with 0 ROAS (like Facebook if shown with 0), recommend re-evaluation, not increased investment
         - Only recommend increasing investment in channels that show increased spend in the optimized scenarios
+        - CRITICAL: For OOH_s (Out-of-Home) specifically, verify the optimized scenarios very carefully. If OOH_s shows ANY decrease or is not explicitly increased in the optimized scenarios, it MUST be labeled as "Re-evaluate" or "Decrease", NOT as "Increase". This is a crucial check for accuracy.
         - Be precise in your channel names and make sure recommendations match the data in tables
         - Double-check your recommendations against the budget allocation tables to ensure consistency
         
@@ -1165,8 +1168,9 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
        
        Follow these rules when making recommendations:
        - Channels with 0 ROAS should ALWAYS be marked as "Re-evaluate"
-       - Pay close attention to OOH channel - if it shows decreasing investment in the optimized budget scenarios (bound_2, bound_3), recommend "Maintain" not "Increase" for OOH
-       - Pay close attention to Search channel - if it shows 0 in the optimized budget scenarios (bound_2, bound_3), recommend "Re-evaluate" not "Increase" for Search
+       - Pay extremely close attention to any OOH_s channel (Out-of-Home) - NEVER recommend "Increase" for OOH_s unless it explicitly shows increased investment in the optimized scenarios
+       - If OOH_s (Out-of-Home) shows ANY decrease in spend in the optimized scenarios or receives less allocation, it MUST be marked as "Decrease" or "Re-evaluate", NEVER as "Increase"
+       - Pay close attention to Search channel - if it shows 0 in the optimized budget scenarios, recommend "Re-evaluate" not "Increase" for Search
        - Only recommend "Increase" for channels where the data clearly shows positive ROI AND increased investment in optimized scenarios
        - For Facebook, if it shows 0 ROAS, it must be marked as "Re-evaluate"
        - For Search, if it shows 0 in the budget allocation scenarios, it must be marked as "Re-evaluate" not "Increase"
@@ -1300,14 +1304,27 @@ def main():
         has_one_pager = 'one_pager_bytes' in st.session_state and st.session_state.one_pager_bytes is not None
         has_budget = 'budget_bytes' in st.session_state and st.session_state.budget_bytes is not None
         
-        # Single upload for both images with multi-file enabled
-        uploaded_files = st.file_uploader(
-            "Upload both Marketing Mix Model images (PNG, JPG, JPEG)",
-            type=["png", "jpg", "jpeg"],
-            accept_multiple_files=True,
-            help="Upload both the One-pager for Model AND the Budget Allocation Onepager images at once",
-            key="multi_uploader"
-        )
+        # Two separate upload fields for each type of image
+        with st.container():
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                one_pager_file = st.file_uploader(
+                    "Upload One-pager for Model (PNG, JPG, JPEG)",
+                    type=["png", "jpg", "jpeg"],
+                    help="The One-pager contains model metrics, ROI, and response charts. Drag and drop your file here.",
+                    key="one_pager_uploader",
+                    label_visibility="visible"
+                )
+            
+            with col2:
+                budget_file = st.file_uploader(
+                    "Upload Budget Allocation Onepager (PNG, JPG, JPEG)",
+                    type=["png", "jpg", "jpeg"],
+                    help="The Budget Allocation Onepager contains budget optimization scenarios. Drag and drop your file here.",
+                    key="budget_uploader",
+                    label_visibility="visible"
+                )
         
         # Initialize variables for image processing
         one_pager_image = None
@@ -1316,121 +1333,46 @@ def main():
         budget_bytes = None
         new_images_uploaded = False
         
-        # Check if we have new uploads
-        if uploaded_files:
-            # Validate that exactly 2 files are uploaded
-            if len(uploaded_files) != 2:
-                st.warning(f"Please upload exactly 2 images. You have uploaded {len(uploaded_files)} image(s).")
-            else:
-                # Process each uploaded file
-                image_types = {}
-                processed_images = {}
+        # Check if we have new uploads and process them
+        if one_pager_file or budget_file:
+            # Clear previous report if new images are uploaded
+            if 'report' in st.session_state:
+                del st.session_state.report
+                if 'predictor_data' in st.session_state:
+                    del st.session_state.predictor_data
+                if 'pie_chart' in st.session_state:
+                    del st.session_state.pie_chart
+        
+        # Process one-pager image if uploaded
+        if one_pager_file:
+            with st.spinner("Processing One-pager for Model..."):
+                # Read the image bytes
+                one_pager_bytes = one_pager_file.read()
+                one_pager_image = enhance_image(one_pager_bytes)
                 
-                # Clear previous report if new images are uploaded
-                if 'report' in st.session_state:
-                    del st.session_state.report
-                    if 'predictor_data' in st.session_state:
-                        del st.session_state.predictor_data
-                    if 'pie_chart' in st.session_state:
-                        del st.session_state.pie_chart
+                # Store in session state
+                st.session_state.one_pager_bytes = one_pager_bytes
+                st.session_state.one_pager_image = one_pager_image
+                st.session_state.one_pager_filename = one_pager_file.name
                 
-                # First process both images and detect their types
-                with st.spinner("Detecting image types..."):
-                    for idx, uploaded_file in enumerate(uploaded_files):
-                        # Read the image bytes
-                        image_bytes = uploaded_file.read()
-                        enhanced_image = enhance_image(image_bytes)
-                        
-                        # Try to detect the image type (without API key first)
-                        image_type = "unknown"
-                        
-                        if api_key:
-                            # If API key is available, use detect_image_type with API
-                            image_type = detect_image_type(image_bytes, api_key)
-                        else:
-                            # Otherwise, use a simpler heuristic to guess the type
-                            try:
-                                # Convert to text and look for keywords
-                                img = Image.open(io.BytesIO(image_bytes))
-                                try:
-                                    text = pytesseract.image_to_string(img)
-                                    # Print more text for debugging
-                                    print(f"OCR text without API (fallback): {text}")
-                                    
-                                    # First check for Budget Allocation keywords
-                                    if "Budget Allocation" in text or "Budget Allocation Onepager" in text or "Optimized Budget" in text:
-                                        print("Detected as budget-allocation via fallback OCR")
-                                        image_type = "budget-allocation"
-                                    # Then check for One-pager keywords
-                                    elif "One-pager" in text or "model performance" in text.lower() or "waterfall" in text.lower() or "NRMSE" in text:
-                                        print("Detected as one-pager via fallback OCR")
-                                        image_type = "one-pager"
-                                except:
-                                    # If OCR fails, make a guess based on image dimensions
-                                    w, h = img.size
-                                    if w > h * 1.5:  # Very wide image is likely a one-pager
-                                        image_type = "one-pager"
-                                    else:
-                                        image_type = "budget-allocation"
-                            except:
-                                # If all else fails, use the order they were uploaded
-                                image_type = "one-pager" if idx == 0 else "budget-allocation"
-                        
-                        # Store the detected type and processed image
-                        image_types[uploaded_file.name] = image_type
-                        processed_images[uploaded_file.name] = {
-                            "bytes": image_bytes,
-                            "image": enhanced_image,
-                            "type": image_type
-                        }
+                # Display the one-pager image
+                st.image(one_pager_image, use_container_width=True, caption="One-pager for Model")
+                new_images_uploaded = True
+        
+        # Process budget allocation image if uploaded
+        if budget_file:
+            with st.spinner("Processing Budget Allocation Onepager..."):
+                # Read the image bytes
+                budget_bytes = budget_file.read()
+                budget_image = enhance_image(budget_bytes)
                 
-                # Check if we have both types of images
-                has_one_pager_upload = "one-pager" in image_types.values()
-                has_budget_upload = "budget-allocation" in image_types.values()
+                # Store in session state
+                st.session_state.budget_bytes = budget_bytes
+                st.session_state.budget_image = budget_image
+                st.session_state.budget_filename = budget_file.name
                 
-                if not has_one_pager_upload or not has_budget_upload:
-                    # We don't have both types - try to determine which is which
-                    if len(processed_images) == 2:
-                        # If we have two images but couldn't identify both types,
-                        # assign them based on some heuristic or just use the first one as one-pager
-                        file_names = list(processed_images.keys())
-                        image_types[file_names[0]] = "one-pager"
-                        image_types[file_names[1]] = "budget-allocation"
-                        processed_images[file_names[0]]["type"] = "one-pager"
-                        processed_images[file_names[1]]["type"] = "budget-allocation"
-                        
-                        st.info("""
-                        Could not automatically determine both image types correctly. 
-                        
-                        Assuming:
-                        - First uploaded image is the **One-pager for Model** (with model metrics and response charts)
-                        - Second uploaded image is the **Budget Allocation Onepager** (with budget scenarios)
-                        
-                        You can re-upload the images in the correct order if needed.
-                        """)
-                
-                # Now assign the images to their proper variables
-                for filename, details in processed_images.items():
-                    if details["type"] == "one-pager":
-                        one_pager_bytes = details["bytes"]
-                        one_pager_image = details["image"]
-                        st.session_state.one_pager_bytes = one_pager_bytes
-                        st.session_state.one_pager_image = one_pager_image
-                        st.session_state.one_pager_filename = filename
-                    elif details["type"] == "budget-allocation":
-                        budget_bytes = details["bytes"]
-                        budget_image = details["image"]
-                        st.session_state.budget_bytes = budget_bytes
-                        st.session_state.budget_image = budget_image
-                        st.session_state.budget_filename = filename
-                
-                # Display the processed images
-                if one_pager_image is not None:
-                    st.image(one_pager_image, use_container_width=True, caption="One-pager for Model")
-                
-                if budget_image is not None:
-                    st.image(budget_image, use_container_width=True, caption="Budget Allocation Onepager")
-                
+                # Display the budget image
+                st.image(budget_image, use_container_width=True, caption="Budget Allocation Onepager")
                 new_images_uploaded = True
                 
         # If no new images were uploaded, use the ones from session state if available
