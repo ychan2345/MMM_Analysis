@@ -97,47 +97,101 @@ def detect_image_type(image_bytes: bytes, api_key: str) -> str:
         # Use pytesseract to extract text from the image
         text = pytesseract.image_to_string(image)
         
-        # Check for keywords that identify the image type
-        if "One-pager for Model" in text or "Model Performance:" in text:
-            return "one-pager"
-        elif "Budget Allocation" in text or "Budget Allocation Onepager" in text:
+        # Print for debugging (will show in Streamlit logs)
+        print(f"OCR text extracted: {text[:100]}...")
+        
+        # Print more of the OCR text for debugging
+        print(f"Full OCR text: {text}")
+        
+        # First check for Budget Allocation (this should take precedence)
+        if "Budget Allocation" in text or "Budget Allocation Onepager" in text or "Optimized Budget" in text:
+            print("Detected as budget-allocation via OCR (primary check)")
             return "budget-allocation"
         
+        # Then check for One-pager
+        elif any(keyword in text for keyword in ["One-pager for Model", "Model Performance:", "Response Decomposition", "Response Curve", "NRMSE", "Adjusted R²"]):
+            print("Detected as one-pager via OCR")
+            return "one-pager"
+        
+        print("OCR detection failed, trying OpenAI Vision API")
+        
         # If OCR doesn't find it, try the OpenAI Vision API for image detection
-        prompt = "What type of marketing mix model image is this? Is it a 'One-pager for Model' showing model performance metrics or a 'Budget Allocation Onepager'? Respond with only 'one-pager' or 'budget-allocation'."
+        prompt = """Classify this marketing mix model image. 
+
+Look for these characteristics:
+
+'One-pager for Model' typically includes:
+- Model performance metrics (R²/NRMSE)
+- Response curves or distribution charts
+- Channel effectiveness/ROI measures
+- Predictor importance graphs
+
+'Budget Allocation Onepager' typically includes:
+- Budget tables with spending amounts
+- Channel allocation percentages
+- Optimization scenarios
+- ROAS comparisons across channels
+
+Respond with ONLY ONE of these exact phrases:
+- "one-pager" (for Model Performance/Response charts)
+- "budget-allocation" (for Budget/Spending tables)"""
         
         client = OpenAI(api_key=api_key)
         base64_image = base64.b64encode(image_bytes).decode("utf-8")
         
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            temperature=0,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
-                        }
-                    ]
-                }
-            ],
-            max_tokens=50
-        )
-        
-        result = response.choices[0].message.content.lower().strip()
-        
-        if "one-pager" in result:
-            return "one-pager"
-        elif "budget" in result or "allocation" in result:
-            return "budget-allocation"
-        
-        return "unknown"
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o",
+                temperature=0,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are an image classification system that can only respond with 'one-pager' or 'budget-allocation'."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}
+                            }
+                        ]
+                    }
+                ],
+                max_tokens=100
+            )
+            
+            result = response.choices[0].message.content.lower().strip()
+            print(f"OpenAI Vision API response: {result}")
+            
+            if "one-pager" in result or "one pager" in result:
+                return "one-pager"
+            elif "budget" in result or "allocation" in result:
+                return "budget-allocation"
+            else:
+                print(f"Unrecognized API response format: {result}")
+                return "unknown"
+                
+        except Exception as api_error:
+            print(f"OpenAI API error in image detection: {str(api_error)}")
+            # If API call fails, make best guess based on image characteristics
+            
+            # Check image size and aspect ratio as a fallback detection method
+            width, height = image.size
+            aspect_ratio = width / height
+            
+            # One-pagers tend to be wider (landscape orientation)
+            if aspect_ratio > 1.2:
+                print("Fallback: Using aspect ratio to guess image type (landscape: likely one-pager)")
+                return "one-pager"
+            else:
+                print("Fallback: Using aspect ratio to guess image type (portrait/square: likely budget-allocation)")
+                return "budget-allocation"
         
     except Exception as e:
-        print(f"Error in image type detection: {str(e)}")
+        st.error(f"Error in image type detection: {str(e)}")
+        # Last resort fallback
         return "unknown"
 
 def pil_image_to_bytes(image: Image.Image, format="JPEG"):
@@ -846,7 +900,7 @@ def analyze_budget_allocation_with_gpt4_vision(image_bytes: bytes, api_key: str)
            
            After the table, add 2-3 sentences explaining which channels should receive increased investment and why.
            
-           ### iii) 10% Decrease in Spend Scenario
+           ### iii) 10% Budget Cut in Spend Scenario
            
            If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
            
@@ -959,7 +1013,7 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         ### 5.1. Maintain Current Spend Scenario
         Present the current spending allocation and its performance. Include an assessment of how well the current budget is being utilized, which channels are performing well, and which might need adjustments.
         
-        ### 5.2. 10% Increase in Spend Scenario
+        ### 5.2. Extra 10% in Spend Scenario
         If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. 
         
         Be very specific about:
@@ -970,7 +1024,7 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         
         IMPORTANT: Only channels with positive ROAS should receive increased investment. For each recommended channel, provide the exact increase amount and justification.
         
-        ### 5.3. 10% Decrease in Spend Scenario
+        ### 5.3. 10% Budget Cut in Spend Scenario
         If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. 
         
         Be very specific about:
@@ -1070,7 +1124,7 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     
     After the table, include 2-3 sentences summarizing the current allocation performance, focusing on which channels are performing well and which might need adjustments.
     
-    ### ii) 10% Increase in Spend Scenario
+    ### ii) Extra 10% in Spend Scenario
            
     If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Present a table showing the optimal allocation with a 10% budget increase:
     
@@ -1086,7 +1140,7 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     
     IMPORTANT: Only channels with positive ROAS should receive increased investment. For each recommended channel, provide the exact increase amount and justification.
     
-    ### iii) 10% Decrease in Spend Scenario
+    ### iii) 10% Budget Cut in Spend Scenario
            
     If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
     
@@ -1211,10 +1265,9 @@ def main():
     # Add a note about the API key
     if env_api_key:
         st.info("An API key is available from environment variables, but you need to enter your own key below.")
-        # Create a masked placeholder instead of showing the actual key
-        placeholder = "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-    else:
-        placeholder = ""
+    
+    # Always show a masked placeholder for the API key
+    placeholder = "XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     
     # Always show the API key input field with an empty value (never prefill)
     api_key = st.text_input(
@@ -1301,9 +1354,16 @@ def main():
                                 img = Image.open(io.BytesIO(image_bytes))
                                 try:
                                     text = pytesseract.image_to_string(img)
-                                    if "Budget Allocation" in text or "budget" in text.lower() or "allocation" in text.lower():
+                                    # Print more text for debugging
+                                    print(f"OCR text without API (fallback): {text}")
+                                    
+                                    # First check for Budget Allocation keywords
+                                    if "Budget Allocation" in text or "Budget Allocation Onepager" in text or "Optimized Budget" in text:
+                                        print("Detected as budget-allocation via fallback OCR")
                                         image_type = "budget-allocation"
-                                    elif "One-pager" in text or "model performance" in text.lower() or "waterfall" in text.lower():
+                                    # Then check for One-pager keywords
+                                    elif "One-pager" in text or "model performance" in text.lower() or "waterfall" in text.lower() or "NRMSE" in text:
+                                        print("Detected as one-pager via fallback OCR")
                                         image_type = "one-pager"
                                 except:
                                     # If OCR fails, make a guess based on image dimensions
@@ -1339,7 +1399,15 @@ def main():
                         processed_images[file_names[0]]["type"] = "one-pager"
                         processed_images[file_names[1]]["type"] = "budget-allocation"
                         
-                        st.info("Could not automatically determine image types. Assuming first image is One-pager and second is Budget Allocation.")
+                        st.info("""
+                        Could not automatically determine both image types correctly. 
+                        
+                        Assuming:
+                        - First uploaded image is the **One-pager for Model** (with model metrics and response charts)
+                        - Second uploaded image is the **Budget Allocation Onepager** (with budget scenarios)
+                        
+                        You can re-upload the images in the correct order if needed.
+                        """)
                 
                 # Now assign the images to their proper variables
                 for filename, details in processed_images.items():
