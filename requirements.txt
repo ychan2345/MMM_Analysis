@@ -3,3 +3,7 @@ streamlit>=1.42.0
 python-docx
 pytesseract
 matplotlib
+pillow
+opencv-python
+numpy
+docx>=0.2.4"
