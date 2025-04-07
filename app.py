@@ -296,10 +296,12 @@ def add_table_to_doc(doc: Document, table_lines: list):
     # Add some space after the table
     doc.add_paragraph()
 
-def add_pie_chart_to_doc(doc: Document, figure: Figure, title: str = "Response Contribution by Media Channel"):
+def add_chart_to_doc(doc: Document, figure: Figure, has_negative_values: bool = False, title: str = "Response Contribution by Media Channel", negative_predictors: list = None):
     """
-    Adds a matplotlib pie chart to the Word document.
+    Adds a matplotlib chart to the Word document.
     Saves the figure to a temporary file and then adds it to the document.
+    If has_negative_values is True, adds a note about the presence of negative values.
+    If negative_predictors is provided, lists the specific predictors with negative values.
     """
     # Create a heading for the chart
     doc.add_heading(title, level=3)
@@ -311,7 +313,14 @@ def add_pie_chart_to_doc(doc: Document, figure: Figure, title: str = "Response C
         doc.add_picture(temp_file.name, width=Inches(6.0))
     
     # Add explanation text
-    doc.add_paragraph("This visualization shows the percentage contribution of each media channel to the overall response, based on the Response Decomposition Waterfall by Predictor from the one-pager model.")
+    p = doc.add_paragraph("This visualization shows the percentage contribution of each media channel to the overall response, based on the Response Decomposition Waterfall by Predictor from the one-pager model.")
+    
+    # Add note about negative values if needed
+    if has_negative_values and negative_predictors:
+        note_p = doc.add_paragraph()
+        negative_predictors_str = ", ".join(negative_predictors)
+        note_run = note_p.add_run(f"Note: Some predictors ({negative_predictors_str}) show negative contributions. This is common in marketing mix models where certain components may have negative contributions, indicating potential inefficiencies or cannibalization effects.")
+        note_run.italic = True
     
     # Add a small space after the chart
     doc.add_paragraph()
@@ -686,23 +695,26 @@ def extract_predictor_percentages(image_bytes: bytes, api_key: str) -> dict:
         
         prompt = """You are examining a marketing mix model one-pager, focusing on the Response Decomposition Waterfall by Predictor chart.
         
-        This chart shows the contribution of each marketing channel to the total response.
+        This chart shows the contribution of each marketing channel/predictor to the total response.
         
         Please look at the Response Decomposition Waterfall by Predictor chart (if present) and extract:
         1. The exact name of each marketing channel/predictor (e.g., TV, Digital, Print, Radio)
         2. The exact percentage contribution of each channel (precise numbers as shown in the chart)
+        3. IMPORTANT: Be sure to include the "intercept" value if it appears in the chart
         
         Format your response as a JSON object where keys are predictor names (exactly as labeled in the chart) 
         and values are their percentage contributions as decimal numbers (not strings with % symbols).
         
         Example format:
         {
+          "intercept": 30.5,
           "TV": 28.4,
           "Digital": 15.2,
           "Print": 5.6
         }
         
         IMPORTANT: Only include actual predictors from the image with their exact percentages as shown.
+        Include the "intercept" value that represents the baseline contribution.
         Do NOT round numbers or include values not explicitly shown. Do NOT make up data or include
         channels not present in the chart. If you can't find the chart or the percentages, return an empty object.
         """
@@ -756,18 +768,43 @@ def extract_predictor_percentages(image_bytes: bytes, api_key: str) -> dict:
         # Log the extracted values for debugging
         print(f"Extracted predictor data: {result}")
         
-        # Ensure there are no negative values (which would cause pie chart errors)
-        # We'll handle filtering in the create_predictor_pie_chart function
+        # We'll handle both positive and negative values in the create_predictor_chart function
         return result
         
     except Exception as e:
         print(f"Error extracting predictor percentages: {str(e)}")
         return {}
 
-def create_predictor_pie_chart(predictor_data: dict) -> Figure:
+def get_filtered_values_note(has_negative_values: bool) -> str:
     """
-    Creates a pie chart visualization of predictor percentages.
-    Returns a matplotlib Figure object.
+    Generates the HTML note about negative values for display in the UI.
+    If negative_predictors are available in session state, includes them in the note.
+    """
+    if not has_negative_values:
+        return ""
+        
+    if 'negative_predictors' in st.session_state and st.session_state.negative_predictors:
+        negative_predictors_str = ", ".join(st.session_state.negative_predictors)
+        return f"""
+        <p><b>Note:</b> Some predictors ({negative_predictors_str}) show negative contributions. 
+        This is common in marketing mix models where certain components may have negative contributions, 
+        indicating potential inefficiencies or cannibalization effects.</p>
+        """
+    else:
+        return """
+        <p><b>Note:</b> Some predictors show negative contributions. 
+        This is common in marketing mix models where certain components may have negative contributions, 
+        indicating potential inefficiencies or cannibalization effects.</p>
+        """
+
+def create_predictor_chart(predictor_data: dict) -> tuple:
+    """
+    Creates a horizontal bar chart visualization of predictor percentages.
+    Returns a tuple containing (matplotlib Figure object, has_negative_values, negative_predictors).
+    has_negative_values indicates if any negative values were found.
+    negative_predictors is a list of predictors with negative values.
+    
+    Organizes the bars with positive values at the top and negative values at the bottom.
     """
     if not predictor_data:
         # Return an empty figure if no data
@@ -776,81 +813,68 @@ def create_predictor_pie_chart(predictor_data: dict) -> Figure:
         ax.text(0.5, 0.5, "No predictor data available", 
                 horizontalalignment='center', verticalalignment='center', fontsize=14)
         ax.axis('off')
-        return fig
-        
-    # Filter out any negative values and issue a warning if found
-    filtered_data = {k: v for k, v in predictor_data.items() if v > 0}
-    if len(filtered_data) < len(predictor_data):
-        # Some values were filtered - create a note about this
-        print(f"Warning: Filtered out {len(predictor_data) - len(filtered_data)} negative contribution values")
-        if not filtered_data:
-            # If no positive values remain, return an empty chart with a message
-            fig = Figure(figsize=(10, 6))
-            ax = fig.add_subplot(111)
-            ax.text(0.5, 0.5, "Cannot create pie chart: All contribution values are negative or zero", 
-                    horizontalalignment='center', verticalalignment='center', fontsize=14)
-            ax.axis('off')
-            return fig
+        return fig, False, []
     
-    # Sort data by value (descending)
-    sorted_data = dict(sorted(filtered_data.items(), key=lambda item: item[1], reverse=True))
+    # Check if there are any negative values
+    negative_predictors = [k for k, v in predictor_data.items() if v < 0]
+    has_negative_values = len(negative_predictors) > 0
     
-    # Prepare data for the pie chart
-    labels = list(sorted_data.keys())
-    values = list(sorted_data.values())
+    # Separate positive and negative values
+    positive_items = {k: v for k, v in predictor_data.items() if v >= 0}
+    negative_items = {k: v for k, v in predictor_data.items() if v < 0}
     
-    # Create the pie chart
-    fig = Figure(figsize=(10, 6))
+    # Sort positive values by value (ascending - to put highest values at top when plotted)
+    # This counterintuitive ordering is because matplotlib plots from bottom to top
+    sorted_positive = dict(sorted(positive_items.items(), key=lambda item: item[1]))
+    
+    # Sort negative values by value (descending - to put most negative at bottom)
+    sorted_negative = dict(sorted(negative_items.items(), key=lambda item: item[1], reverse=True))
+    
+    # Combine negative first (will be at bottom), then positive values (will be at top)
+    # This ordering ensures the highest positive values appear at the top of the plot
+    combined_data = {**sorted_negative, **sorted_positive}
+    
+    # Prepare data for the bar chart
+    labels = list(combined_data.keys())
+    values = list(combined_data.values())
+    
+    # Create the bar chart
+    fig = Figure(figsize=(12, 8))  # Larger figure to accommodate horizontal bars and labels
     ax = fig.add_subplot(111)
     
     # Custom colors with good contrast
     colors = plt.cm.tab20.colors
     
-    # Define a custom autopct function to show the exact percentages from the data
-    def make_autopct(values):
-        def my_autopct(pct):
-            # Find the closest value in our original data
-            for i, v in enumerate(values):
-                if abs(v/sum(values)*100 - pct) < 0.1:  # If within 0.1% tolerance
-                    return f'{v:.1f}%'  # Show the exact value from our data
-            return f'{pct:.1f}%'  # Fallback to calculated percentage
-        return my_autopct
+    # Assign colors to bars based on positive/negative values
+    bar_colors = [colors[i % len(colors)] if v >= 0 else 'r' for i, v in enumerate(values)]
     
-    # Create the pie chart with percentages shown
-    wedges, texts, autotexts = ax.pie(
-        values, 
-        labels=None,
-        autopct=make_autopct(values),
-        startangle=90,
-        colors=colors,
-        wedgeprops={'edgecolor': 'w', 'linewidth': 1}
-    )
+    # Create horizontal bar chart
+    bars = ax.barh(labels, values, color=bar_colors, edgecolor='w', linewidth=0.5)
     
-    # Equal aspect ratio ensures that pie is drawn as a circle
-    ax.axis('equal')
+    # Add value labels at the end of each bar
+    for i, bar in enumerate(bars):
+        width = bar.get_width()
+        label_x_pos = width + 0.5 if width >= 0 else width - 1.5
+        ax.text(label_x_pos, bar.get_y() + bar.get_height()/2, 
+                f'{values[i]:.1f}%', va='center', ha='left' if width >= 0 else 'right',
+                fontweight='bold', color='black')
     
-    # Add a legend outside the pie with exact percentages
-    legend_labels = [f"{label} ({value:.1f}%)" for label, value in sorted_data.items()]
-    ax.legend(
-        wedges,
-        legend_labels,
-        title="Media Channels",
-        loc="center left",
-        bbox_to_anchor=(1, 0, 0.5, 1)
-    )
+    # Add grid lines for better readability
+    ax.grid(True, axis='x', linestyle='--', alpha=0.7)
     
-    # Set the font size for percentage labels
-    for autotext in autotexts:
-        autotext.set_color('white')
-        autotext.set_fontsize(10)
-        autotext.set_weight('bold')
-    
+    # Set title and labels
     ax.set_title('Response Contribution by Media Channel', fontsize=16)
+    ax.set_xlabel('Contribution (%)', fontsize=12)
     
-    # Adjust layout to make room for legend
+    # Add zero line for reference with negative values
+    if has_negative_values:
+        ax.axvline(x=0, color='black', linestyle='-', alpha=0.5)
+    
+    # Adjust layout
     fig.tight_layout()
     
-    return fig
+    # Return the figure, a boolean indicating if negative values were found, and list of negative predictors
+    return (fig, has_negative_values, negative_predictors)
 
 def analyze_budget_allocation_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     """
@@ -959,7 +983,7 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
     5. Budget Allocation optimization scenarios
     6. Summary and recommendations
     
-    Returns a tuple containing (final_report, predictor_data, pie_chart)
+    Returns a tuple containing (final_report, predictor_data, chart_figure, has_negative_values, negative_predictors)
     """
     try:
         # Process and analyze the one-pager
@@ -968,7 +992,12 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         
         # Extract predictor percentages for visualization
         predictor_data = extract_predictor_percentages(one_pager_bytes, api_key)
-        pie_chart = create_predictor_pie_chart(predictor_data)
+        chart_result = create_predictor_chart(predictor_data)
+        # Unpack the tuple (fig, has_negative_values, negative_predictors)
+        pie_chart, has_negative_values, negative_predictors = chart_result
+        
+        # Save in session state for UI display
+        st.session_state.negative_predictors = negative_predictors
         
         # Process and analyze the budget allocation image
         # First crop to top 7/12 as this contains the most relevant budget information
@@ -1070,7 +1099,8 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         """
         
         final_report = summarize_responses(summary_prompt, api_key)
-        return (final_report, predictor_data, pie_chart)
+        # Return the report, predictor data, pie chart figure, has_negative_values flag, and negative_predictors
+        return (final_report, predictor_data, pie_chart, has_negative_values, negative_predictors)
             
     except Exception as e:
         raise Exception(f"Error generating comprehensive analysis: {str(e)}")
@@ -1465,7 +1495,8 @@ def main():
         has_previous_report = (
             'report' in st.session_state and 
             'predictor_data' in st.session_state and 
-            'pie_chart' in st.session_state
+            'pie_chart' in st.session_state and
+            'has_negative_values' in st.session_state
         )
         
         # Show the cached report if available
@@ -1476,6 +1507,7 @@ def main():
             report = st.session_state.report
             predictor_data = st.session_state.predictor_data
             pie_chart = st.session_state.pie_chart
+            has_negative_values = st.session_state.has_negative_values
             
             # Show the report
             st.markdown("## 📋 AI-Powered Analysis Report")
@@ -1491,12 +1523,22 @@ def main():
                 if predictor_data:
                     st.markdown("### 📈 Response Contribution by Media Channel")
                     st.pyplot(pie_chart)
-                    st.markdown("""
+                    
+                    # Base info text
+                    info_text = """
                     <div class="info-box">
                         <p>This visualization shows the percentage contribution of each media channel to the overall response, 
                         based on the Response Decomposition Waterfall by Predictor from the one-pager model.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    """
+                    
+                    # Add explanation about filtered negative values if needed
+                    if has_negative_values:
+                        # Use the helper function to get the note with specific predictor names
+                        filtered_note = get_filtered_values_note(has_negative_values)
+                        info_text += filtered_note
+                    
+                    info_text += "</div>"
+                    st.markdown(info_text, unsafe_allow_html=True)
                 
                 # Display the rest of the report
                 st.markdown("## 2. Key Business Drivers" + report_sections[1])
@@ -1508,12 +1550,22 @@ def main():
                 if predictor_data:
                     st.markdown("### 📈 Response Contribution by Media Channel")
                     st.pyplot(pie_chart)
-                    st.markdown("""
+                    
+                    # Base info text
+                    info_text = """
                     <div class="info-box">
                         <p>This visualization shows the percentage contribution of each media channel to the overall response, 
                         based on the Response Decomposition Waterfall by Predictor from the one-pager model.</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    """
+                    
+                    # Add explanation about filtered negative values if needed
+                    if has_negative_values:
+                        # Use the helper function to get the note with specific predictor names
+                        filtered_note = get_filtered_values_note(has_negative_values)
+                        info_text += filtered_note
+                    
+                    info_text += "</div>"
+                    st.markdown(info_text, unsafe_allow_html=True)
                     
             # Option to download as DOCX
             doc = Document()
@@ -1527,7 +1579,7 @@ def main():
                 
                 # Add the pie chart after Model Performance section
                 if predictor_data:
-                    add_pie_chart_to_doc(doc, pie_chart)
+                    add_chart_to_doc(doc, pie_chart, has_negative_values)
                 
                 # Add the rest of the report
                 add_formatted_text_to_doc(doc, "## 2. Key Business Drivers" + report_sections[1])
@@ -1537,7 +1589,7 @@ def main():
                 
                 # Add the pie chart at the end if structure not recognized
                 if predictor_data:
-                    add_pie_chart_to_doc(doc, pie_chart)
+                    add_chart_to_doc(doc, pie_chart, has_negative_values)
             
             # Save temporarily and offer for download
             with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_file:
@@ -1571,14 +1623,16 @@ def main():
                     # Check if we already have a stored report
                     if ('report' in st.session_state and 
                         'predictor_data' in st.session_state and 
-                        'pie_chart' in st.session_state):
+                        'pie_chart' in st.session_state and
+                        'has_negative_values' in st.session_state):
                         # Use cached report data
                         report = st.session_state.report
                         predictor_data = st.session_state.predictor_data
                         pie_chart = st.session_state.pie_chart
+                        has_negative_values = st.session_state.has_negative_values
                     else:
                         # Run the comprehensive analysis
-                        report, predictor_data, pie_chart = comprehensive_analysis(
+                        report, predictor_data, pie_chart, has_negative_values, negative_predictors = comprehensive_analysis(
                             one_pager_image,
                             budget_image,
                             api_key
@@ -1588,6 +1642,8 @@ def main():
                         st.session_state.report = report
                         st.session_state.predictor_data = predictor_data
                         st.session_state.pie_chart = pie_chart
+                        st.session_state.has_negative_values = has_negative_values
+                        st.session_state.negative_predictors = negative_predictors
                         # Add comprehensive_report to session state for the Chat mode to use
                         st.session_state.comprehensive_report = report
                     
@@ -1606,12 +1662,20 @@ def main():
                         if predictor_data:
                             st.markdown("### 📈 Response Contribution by Media Channel")
                             st.pyplot(pie_chart)
-                            st.markdown("""
+                            
+                            # Base info text
+                            info_text = """
                             <div class="info-box">
                                 <p>This visualization shows the percentage contribution of each media channel to the overall response, 
                                 based on the Response Decomposition Waterfall by Predictor from the one-pager model.</p>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            """                            # Add explanation about filtered negative values if needed
+                            if has_negative_values:
+                                # Use the helper function to get the note with specific predictor names
+                                filtered_note = get_filtered_values_note(has_negative_values)
+                                info_text += filtered_note
+                            
+                            info_text += "</div>"
+                            st.markdown(info_text, unsafe_allow_html=True)
                         
                         # Display the rest of the report
                         st.markdown("## 2. Key Business Drivers" + report_sections[1])
@@ -1623,12 +1687,20 @@ def main():
                         if predictor_data:
                             st.markdown("### 📈 Response Contribution by Media Channel")
                             st.pyplot(pie_chart)
-                            st.markdown("""
+                            
+                            # Base info text
+                            info_text = """
                             <div class="info-box">
                                 <p>This visualization shows the percentage contribution of each media channel to the overall response, 
                                 based on the Response Decomposition Waterfall by Predictor from the one-pager model.</p>
-                            </div>
-                            """, unsafe_allow_html=True)
+                            """                            # Add explanation about filtered negative values if needed
+                            if has_negative_values:
+                                # Use the helper function to get the note with specific predictor names
+                                filtered_note = get_filtered_values_note(has_negative_values)
+                                info_text += filtered_note
+                            
+                            info_text += "</div>"
+                            st.markdown(info_text, unsafe_allow_html=True)
                     
                     # Option to download as DOCX
                     doc = Document()
@@ -1642,7 +1714,8 @@ def main():
                         
                         # Add the pie chart after Model Performance section
                         if predictor_data:
-                            add_pie_chart_to_doc(doc, pie_chart)
+                            negative_predictors = st.session_state.negative_predictors if 'negative_predictors' in st.session_state else None
+                            add_chart_to_doc(doc, pie_chart, has_negative_values, negative_predictors=negative_predictors)
                         
                         # Add the rest of the report
                         add_formatted_text_to_doc(doc, "## 2. Key Business Drivers" + report_sections[1])
@@ -1652,7 +1725,8 @@ def main():
                         
                         # Add the pie chart at the end if structure not recognized
                         if predictor_data:
-                            add_pie_chart_to_doc(doc, pie_chart)
+                            negative_predictors = st.session_state.negative_predictors if 'negative_predictors' in st.session_state else None
+                            add_chart_to_doc(doc, pie_chart, has_negative_values, negative_predictors=negative_predictors)
                     
                     # Save temporarily and offer for download
                     with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as temp_file:
