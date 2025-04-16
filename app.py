@@ -517,9 +517,11 @@ def chatbot_with_image(image_bytes: bytes, user_question: str, api_key: str, sec
 
 The user asks: "{user_question}"
 
-Please analyze BOTH images together to provide a comprehensive answer to the user's specific question.
+If the question is specifically about marketing mix models, media channels, ROAS, budgeting, or anything that might appear in these marketing images, please analyze BOTH images together to provide a comprehensive answer.
 Look for relevant information in both images that could help answer the question more thoroughly.
 If information from one image complements or contradicts information from the other, explain these connections.
+
+If the question is about general knowledge, such as "What is machine learning?" or other topics not related to the marketing mix model analysis, you can use your general knowledge to provide a helpful, informative response without needing to reference the images.
 
 When analyzing model performance:
 - Carefully report the exact values for model quality metrics like Adjusted R² (look for this in the one-pager)
@@ -550,12 +552,16 @@ Pay special attention to all numerical values, percentages, and statistical metr
 
 "{user_question}"
 
-Please analyze the marketing mix model image and provide a detailed answer to the user's specific question. 
-Focus on providing actionable insights, specific metrics, and clear explanations that directly address what the user asked about.
-If the question is about model performance, make sure to extract and report specific model quality metrics like Adjusted R², NRMSE, and DECOMP.RSSD.
-If the question is about ROI, ROAS, channel performance, budget allocation, or other model metrics, extract specific numbers and provide context.
-Pay special attention to all numerical values, percentages, and statistical metrics visible in charts, tables, and annotations.
-If the image doesn't contain information needed to answer the question completely, state what's missing and provide the best possible answer based on what's visible.
+If the question is specifically about marketing mix models, media channels, ROAS, budgeting, or anything that might appear in this marketing image, please analyze the image to provide a comprehensive answer.
+
+If the question is about general knowledge, such as "What is machine learning?" or other topics not related to the marketing mix model analysis, you can use your general knowledge to provide a helpful, informative response without needing to reference the image.
+
+When analyzing the marketing image:
+- Focus on providing actionable insights, specific metrics, and clear explanations that directly address what the user asked about
+- If the question is about model performance, make sure to extract and report specific model quality metrics like Adjusted R², NRMSE, and DECOMP.RSSD
+- If the question is about ROI, ROAS, channel performance, budget allocation, or other model metrics, extract specific numbers and provide context
+- Pay special attention to all numerical values, percentages, and statistical metrics visible in charts, tables, and annotations
+- If the image doesn't contain information needed to answer the question completely, state what's missing and provide the best possible answer based on what's visible
 """
         
         # Update the first element (prompt text)
@@ -566,13 +572,16 @@ If the image doesn't contain information needed to answer the question completel
             # Add information about the comprehensive report in the prompt
             comprehensive_report_prompt = f"""
 I have already performed a comprehensive analysis of the marketing mix model images. 
-Here is the detailed report I generated, which you should refer to when answering the user's question:
+Here is the detailed report I generated, which you should refer to when answering marketing-related questions:
 
 COMPREHENSIVE ANALYSIS REPORT:
 {comprehensive_report}
 
-Please use this analysis as a foundation for your answer to ensure consistency with 
-previous insights. Your answer should directly address the user's question: "{user_question}"
+If the user's question is specifically about marketing mix models, media channels, ROAS, budgeting, or anything that appears in this analysis, please use this analysis as a foundation for your answer to ensure consistency with previous insights.
+
+If the question is about general knowledge, such as "What is machine learning?" or other topics not related to the marketing mix model analysis, you can use your general knowledge to provide a helpful, informative response.
+
+The user's question is: "{user_question}"
 """
             # Create a new message list with the comprehensive report first
             messages = [
@@ -582,6 +591,7 @@ previous insights. Your answer should directly address the user's question: "{us
         else:
             # If no comprehensive report, just use the content list
             messages = [
+                {"role": "system", "content": "You are an AI assistant that specializes in marketing mix models, but can also help with general knowledge questions. When asked about marketing mix models, media channels, or marketing analytics, provide expert insights. For general knowledge questions, provide helpful and accurate information."},
                 {"role": "user", "content": content_list}
             ]
         
@@ -898,55 +908,34 @@ def analyze_budget_allocation_with_gpt4_vision(image_bytes: bytes, api_key: str)
            ... and so on for all channels
         
         2. Budget Optimization Scenarios:
-           Present three completely separate budget scenarios, with a clear heading and individual table for each:
            
            ### i) Maintain Current Spend Scenario
            
-           Present a table of the current spending allocation:
+           Present ONLY a concise table of the current spending allocation:
            
-           | Channel | Current Spend ($) | Current Spend (%) | Response (%) | ROAS | Recommendation |
-           |---------|-------------------|-------------------|--------------|------|----------------|
-           | Channel 1 | [Value]         | [Value]           | [Value]      | [Value] | [Brief note] |
-           | Channel 2 | [Value]         | [Value]           | [Value]      | [Value] | [Brief note] |
-           ... and so on for all channels
+           | Channel | Current Spend ($) | Current Spend (%) | ROAS |
+           |---------|-------------------|-------------------|------|
+           | Channel 1 | [Value]         | [Value]           | [Value] |
            
-           After the table, include 2-3 sentences summarizing the current allocation performance.
+           ### ii) Optimization Recommendations
            
-           ### ii) 10% Increase in Spend Scenario
+           Instead of detailed tables for the 10% increase and 10% decrease scenarios, provide ONLY bullet-point recommendations for which channels should receive more or less investment:
            
-           If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Present a table showing the optimal allocation with a 10% budget increase:
+           **Channels to Increase Investment:**
+           * [Channel Name] - Brief justification based on ROAS
+           * [Channel Name] - Brief justification based on ROAS
            
-           | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
-           |---------|-------------|--------------|------------|---------------|------------------------|
-           | Channel 1 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
-           | Channel 2 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
-           ... and so on for all channels
+           **Channels to Decrease Investment:**
+           * [Channel Name] - Brief justification based on ROAS
+           * [Channel Name] - Brief justification based on ROAS
            
-           After the table, add 2-3 sentences explaining which channels should receive increased investment and why.
+           ### iii) Final Recommendation Table
            
-           ### iii) 10% Budget Cut in Spend Scenario
+           Provide a final recommendation table showing the optimal strategy for each channel:
            
-           If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
-           
-           | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
-           |---------|-------------|--------------|------------|---------------|------------------------|
-           | Channel 1 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
-           | Channel 2 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
-           ... and so on for all channels
-           
-           After the table, add 2-3 sentences explaining which channels should have reduced investment and why.
-        
-        3. Optimization Insights:
-           - Identify which channels have the highest and lowest ROAS
-           - Analyze how budget allocations should change across the three scenarios
-           - Determine which channels would benefit from increased/decreased investment
-           - Include a focused recommendation table:
-           
-           | Channel | Optimum Scenario | Recommended Spend ($) | Expected ROI (%) | Recommendation |
-           |---------|------------------|----------------------|------------------|----------------|
-           | Channel 1 | [Scenario]     | [Value]              | [Value]          | [Increase/Decrease/Maintain] |
-           | Channel 2 | [Scenario]     | [Value]              | [Value]          | [Increase/Decrease/Maintain] |
-           ... and so on for all channels
+           | Channel | Recommendation |
+           |---------|----------------|
+           | Channel 1 | [Increase/Decrease/Maintain/Re-evaluate] |
         
         Be extremely specific with numbers and percentages. Create a structured analysis with clear, actionable insights.
         Ensure all tables align perfectly and contain accurate data extracted from the image.
@@ -1037,34 +1026,36 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         Only recommend increasing investment in channels with proven positive ROAS.
         
         ## 5. Budget Optimization Scenarios
-        Present each of the three budget scenarios in separate sections, with clear headings and individual tables:
         
         ### 5.1. Maintain Current Spend Scenario
-        Present the current spending allocation and its performance. Include an assessment of how well the current budget is being utilized, which channels are performing well, and which might need adjustments.
+        Present ONLY a concise table of the current spending allocation:
         
-        ### 5.2. Extra 10% in Spend Scenario
-        If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. 
+        | Channel | Current Spend ($) | Current Spend (%) | ROAS |
+        |---------|-------------------|-------------------|------|
+        | Channel 1 | [Value]         | [Value]           | [Value] |
         
-        Be very specific about:
-        - Exactly which channels should receive increased investment (list them by name)
-        - How much additional budget each channel should receive (in $ and %)
-        - Why these channels were selected (based on ROAS/ROI metrics)
-        - Expected performance improvements from these increases
+        ### 5.2. Optimization Recommendations
         
-        IMPORTANT: Only channels with positive ROAS should receive increased investment. For each recommended channel, provide the exact increase amount and justification.
+        Instead of detailed tables for the 10% increase and 10% decrease scenarios, provide ONLY bullet-point recommendations for which channels should receive more or less investment. These recommendations must match the final recommendation table in section 5.3:
         
-        ### 5.3. 10% Budget Cut in Spend Scenario
-        If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. 
+        **Channels to Increase Investment:**
+        * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
+        * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
         
-        Be very specific about:
-        - Exactly which channels should have reduced investment (list them by name)
-        - How much to reduce each channel's budget (in $ and %)
-        - Why these channels were selected for cuts
-        - Strategy to minimize performance impact of these cuts
+        **Channels to Decrease Investment or Re-evaluate:**
+        * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
+        * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
         
-        IMPORTANT: Prioritize reducing investment in channels with 0 ROAS first. For each channel recommended for reduction, provide the exact reduction amount and justification.
+        **Channels to Maintain:**
+        * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
         
-        After presenting all scenarios, include a final recommendation table showing the optimal allocation strategy.
+        ### 5.3. Final Recommendation Table
+        
+        Provide a final recommendation table showing the optimal strategy for each channel:
+        
+        | Channel | Recommendation |
+        |---------|----------------|
+        | Channel 1 | [Increase/Decrease/Maintain/Re-evaluate] |
         
         CRITICAL WHEN MAKING RECOMMENDATIONS:
         1. Look at the "Budget Allocation per Paid Media Variable per Month" table carefully.
@@ -1090,6 +1081,7 @@ def comprehensive_analysis(one_pager_image: Image.Image, budget_image: Image.Ima
         - Never recommend increasing investment in channels with 0 ROAS
         - For channels with 0 ROAS (like Facebook if shown with 0), recommend re-evaluation, not increased investment
         - Only recommend increasing investment in channels that show increased spend in the optimized scenarios
+        - HIGHEST PRIORITY FOR TV_S: For tv_s (Television) specifically, ALWAYS verify if there is ANY increase from Initial to Bounded scenario, even a small one. If tv_s shows ANY increase at all OR has a ROAS above 2.0, it MUST be recommended as "Increase" in BOTH the bullet points and final table due to its high effectiveness and strategic importance. This rule overrides all other rules for the tv_s channel specifically.
         - CRITICAL: For OOH_s (Out-of-Home) specifically, verify the optimized scenarios very carefully. If OOH_s shows ANY decrease or is not explicitly increased in the optimized scenarios, it MUST be labeled as "Re-evaluate" or "Decrease", NOT as "Increase". This is a crucial check for accuracy.
         - Be precise in your channel names and make sure recommendations match the data in tables
         - Double-check your recommendations against the budget allocation tables to ensure consistency
@@ -1145,49 +1137,38 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
     - Budget allocation data across different scenarios
     - Channel-specific metrics (spend, response, ROAS)
     - Optimization recommendations 
-    - Present three completely separate budget scenarios, with a clear heading and individual table for each:
+    - Present a focused budget analysis in the following format:
     
     ### i) Maintain Current Spend Scenario
            
-    Present a table of the current spending allocation:
+    Present ONLY a concise table of the current spending allocation:
     
-    | Channel | Current Spend ($) | Current Spend (%) | Response (%) | ROAS | Recommendation |
-    |---------|-------------------|-------------------|--------------|------|----------------|
-    | Channel 1 | [Value]         | [Value]           | [Value]      | [Value] | [Brief note] |
+    | Channel | Current Spend ($) | Current Spend (%) | ROAS |
+    |---------|-------------------|-------------------|------|
+    | Channel 1 | [Value]         | [Value]           | [Value] |
     
-    After the table, include 2-3 sentences summarizing the current allocation performance, focusing on which channels are performing well and which might need adjustments.
+    ### ii) Optimization Recommendations
     
-    ### ii) Extra 10% in Spend Scenario
-           
-    If the business has an extra 10% increase in budget, identify which specific channels should receive more investment to achieve better ROI. Present a table showing the optimal allocation with a 10% budget increase:
+    Instead of detailed tables for the 10% increase and 10% decrease scenarios, provide ONLY bullet-point recommendations for which channels should receive more or less investment. These recommendations must match the final recommendation table in section 5.3:
     
-    | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
-    |---------|-------------|--------------|------------|---------------|------------------------|
-    | Channel 1 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
+    **Channels to Increase Investment:**
+    * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
+    * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
     
-    After the table, add 3-5 sentences explaining:
-    - Exactly which channels should receive increased investment (list them by name)
-    - How much additional budget each channel should receive (in $ and %)
-    - Why these channels were selected (based on ROAS/ROI metrics)
-    - Expected performance improvements from these increases
+    **Channels to Decrease Investment or Re-evaluate:**
+    * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
+    * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
     
-    IMPORTANT: Only channels with positive ROAS should receive increased investment. For each recommended channel, provide the exact increase amount and justification.
+    **Channels to Maintain:**
+    * [Channel Name] - Brief justification based on both ROAS and the bounded scenario results
     
-    ### iii) 10% Budget Cut in Spend Scenario
-           
-    If the business needs to cut the budget by 10%, identify which specific channels should receive less investment while still maintaining optimal ROI. Present a table showing the optimal allocation with a 10% budget decrease:
+    ### iii) Final Recommendation Table
     
-    | Channel | Current ($) | Proposed ($) | Change (%) | Expected ROAS | Expected Response (%) |
-    |---------|-------------|--------------|------------|---------------|------------------------|
-    | Channel 1 | [Value]   | [Value]      | [Value]    | [Value]       | [Value]               |
+    Provide a final recommendation table showing the optimal strategy for each channel:
     
-    After the table, add 3-5 sentences explaining:
-    - Exactly which channels should have reduced investment (list them by name)
-    - How much to reduce each channel's budget (in $ and %)
-    - Why these channels were selected for cuts
-    - Strategy to minimize performance impact of these cuts
-    
-    IMPORTANT: Prioritize reducing investment in channels with 0 ROAS first. For each channel recommended for reduction, provide the exact reduction amount and justification.
+    | Channel | Recommendation |
+    |---------|----------------|
+    | Channel 1 | [Increase/Decrease/Maintain/Re-evaluate] |
     
     3. Final Recommendations:
        After analyzing all three scenarios, provide a final recommendation table:
@@ -1198,6 +1179,7 @@ def analyze_image_with_gpt4_vision(image_bytes: bytes, api_key: str) -> str:
        
        Follow these rules when making recommendations:
        - Channels with 0 ROAS should ALWAYS be marked as "Re-evaluate"
+       - HIGHEST PRIORITY FOR TV_S: For tv_s (Television) specifically, ALWAYS verify if there is ANY increase from Initial to Bounded scenario, even a small one. If tv_s shows ANY increase at all OR has a ROAS above 2.0, it MUST be recommended as "Increase" in BOTH the bullet points and final table due to its high effectiveness and strategic importance. This rule overrides all other rules for the tv_s channel specifically.
        - Pay extremely close attention to any OOH_s channel (Out-of-Home) - NEVER recommend "Increase" for OOH_s unless it explicitly shows increased investment in the optimized scenarios
        - If OOH_s (Out-of-Home) shows ANY decrease in spend in the optimized scenarios or receives less allocation, it MUST be marked as "Decrease" or "Re-evaluate", NEVER as "Increase"
        - Pay close attention to Search channel - if it shows 0 in the optimized budget scenarios, recommend "Re-evaluate" not "Increase" for Search
@@ -1775,108 +1757,113 @@ def main():
         # Check if AI-Powered Analysis has been performed
         has_comprehensive_report = 'comprehensive_report' in st.session_state and st.session_state.comprehensive_report is not None
         
+        # Show info message if comprehensive report is not available
         if not has_comprehensive_report:
-            # No comprehensive report available - show warning
-            st.warning("⚠️ Please run the AI-Powered Analysis first before using Chat with Model mode.")
-            st.markdown("""
-            <div class="info-box">
-                <p>To use the Chat with Model mode:</p>
-                <ol>
-                    <li>Switch to <b>AI-Powered Analysis</b> mode</li>
-                    <li>Upload both required images</li>
-                    <li>Enter your OpenAI API key</li>
-                    <li>Click <b>Analyze Images</b></li>
-                    <li>Then return to Chat with Model mode</li>
-                </ol>
-                <p>This ensures you get consistent and accurate answers based on a thorough analysis.</p>
-            </div>
-            """, unsafe_allow_html=True)
+            st.info("""
+            💡 For general questions, you can start chatting right away. 
+            
+            For detailed marketing mix model analysis, it's recommended to run the AI-Powered Analysis first.
+            """)
             
             # Add a button to switch to AI-Powered Analysis mode
-            # Use a different approach that doesn't directly modify the widget value
-            if st.button("Switch to AI-Powered Analysis Mode"):
-                # Set a flag that will be checked at the start of the app
-                st.session_state.switch_to_comprehensive = True
-                st.rerun()
-                
+            col1, col2 = st.columns([1, 2])
+            with col1:
+                if st.button("Run AI-Powered Analysis"):
+                    # Set a flag that will be checked at the start of the app
+                    st.session_state.switch_to_comprehensive = True
+                    st.rerun()
         else:
-            # Comprehensive report is available - show chat interface
+            # Show success message if comprehensive report is available
+            st.success("✅ AI-Powered Analysis has been completed! You can now ask specific questions about your marketing mix model.")
+        
+        # Always show chat interface
+        # Display chat history
+        for message in st.session_state.chat_history:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        
+        # Chat input
+        user_question = st.chat_input(
+            "Ask a question about your marketing mix model analysis...",
+            disabled=not api_key
+        )
+        
+        # Process chat input when submitted
+        if user_question:
+            # Add user message to chat
+            st.session_state.chat_history.append({"role": "user", "content": user_question})
             
-            # Display a success message
-            st.success("AI-Powered Analysis has been completed! You can now ask questions about the analysis.")
+            # Display user message
+            with st.chat_message("user"):
+                st.markdown(user_question)
             
-            # Display chat history
-            for message in st.session_state.chat_history:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-            
-            # Chat input
-            user_question = st.chat_input(
-                "Ask a question about your marketing mix model analysis...",
-                disabled=not api_key
-            )
-            
-            # Process chat input when submitted
-            if user_question:
-                # Add user message to chat
-                st.session_state.chat_history.append({"role": "user", "content": user_question})
-                
-                # Display user message
-                with st.chat_message("user"):
-                    st.markdown(user_question)
-                
-                # Process with AI
-                with st.chat_message("assistant"):
-                    with st.spinner("Processing your question..."):
-                        try:
-                            # Get the comprehensive report
+            # Process with AI
+            with st.chat_message("assistant"):
+                with st.spinner("Processing your question..."):
+                    try:
+                        # Use OpenAI client for text-based Q&A
+                        client = OpenAI(api_key=api_key)
+                        
+                        # Create system message
+                        system_message = "You are an AI assistant with expertise in marketing mix models and analytics, but you are also capable of answering general knowledge questions accurately. When a question is specifically about marketing mix models, media channels, ROAS, or budgeting, ensure your response is detailed and references the analysis provided. For general inquiries, offer a well-informed answer based on your broad expertise."
+                        
+                        # Check if comprehensive report is available and include it in the prompt if it is
+                        if has_comprehensive_report:
                             comprehensive_report = st.session_state.comprehensive_report
-                            
-                            # Use OpenAI client directly for text-based Q&A without images
-                            client = OpenAI(api_key=api_key)
-                            
-                            # Create a prompt that uses the comprehensive report
                             prompt = f"""
                             I have the following comprehensive analysis of marketing mix model images:
                             
                             {comprehensive_report}
                             
-                            Based on this comprehensive analysis, please answer the following question:
-                            
+                            User's question:
                             {user_question}
                             
-                            Provide a specific, detailed answer using only the information in the comprehensive analysis.
+                            Instructions:
+                            - If the question relates specifically to marketing mix models (including topics such as media channels, ROAS, budgeting, etc.) or any content from the analysis above, generate a detailed, data-driven response that directly references the provided analysis.
+                            - If the question is of a general nature (e.g., "What is machine learning?" or any topic not covered by the analysis), provide a clear, accurate answer using your general expertise.
+
+                            Ensure that marketing-specific responses make use of the analysis data, while general knowledge responses rely on accurate, broad-based insights.
                             """
+                        else:
+                            # No comprehensive report available - just answer the question as best as possible
+                            prompt = f"""
+                            User's question:
+                            {user_question}
                             
-                            # Send to the API
-                            response = client.chat.completions.create(
-                                model="gpt-4o",
-                                temperature=0.0,
-                                messages=[
-                                    {"role": "system", "content": "You are an expert analyst interpreting marketing mix model results."},
-                                    {"role": "user", "content": prompt}
-                                ],
-                                max_tokens=1500
-                            )
+                            Instructions:
+                            - If the question relates specifically to marketing mix models (including topics such as media channels, ROAS, budgeting, etc.), explain that no marketing mix model analysis has been run yet, but provide general information about the topic.
+                            - If the question is of a general nature (e.g., "What is machine learning?" or any topic not specifically about marketing mix models), provide a clear, accurate answer using your general expertise.
                             
-                            # Get the response text
-                            answer = response.choices[0].message.content
-                            
-                            # Display the response
-                            st.markdown(answer)
-                            
-                            # Add assistant message to chat
-                            st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                            Note that the user hasn't run an AI-Powered Analysis of their marketing mix model yet, so you don't have specific data about their model to reference.
+                            """
                         
-                        except Exception as e:
-                            error_msg = f"Error processing your question: {str(e)}"
-                            st.error(error_msg)
-                            st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
-            
-            # Clear chat button
-            if st.button("Clear Chat History", help="Click to clear the current conversation"):
-                st.session_state.chat_history = []
-                st.rerun()
+                        # Send to the API
+                        response = client.chat.completions.create(
+                            model="gpt-4o",
+                            temperature=0.0,
+                            messages=[
+                                {"role": "system", "content": system_message},
+                                {"role": "user", "content": prompt}
+                            ],
+                            max_tokens=1500
+                        )
+                        
+                        # Get and display the response
+                        answer = response.choices[0].message.content
+                        st.markdown(answer)
+                        
+                        # Add assistant message to chat
+                        st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                    
+                    except Exception as e:
+                        error_msg = f"Error processing your question: {str(e)}"
+                        st.error(error_msg)
+                        st.session_state.chat_history.append({"role": "assistant", "content": error_msg})
+        
+        # Clear chat button
+        if st.button("Clear Chat History", help="Click to clear the current conversation"):
+            st.session_state.chat_history = []
+            st.rerun()
 
 # Run the app
 if __name__ == "__main__":
